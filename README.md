@@ -11,11 +11,11 @@ Cozy "Vanilla+" survival for Minecraft servers: a **Paper plugin** plus a **reso
 | `Realism-ResourcePack-Homestead-v6/` | Unzipped resource pack (`pack.mcmeta` at the folder root) |
 
 ## No local compiling needed — GitHub builds it
-Any push to `main` runs [`.github/workflows/build.yml`](.github/workflows/build.yml):
+Any push to `main` runs [`.github/workflows/build.yml`](.github/workflows/build.yml) and refreshes a rolling **latest release** with the plain jar attached:
 
-1. Open the repo → **Actions** tab → latest run
-2. Download the **Homestead-0.1.\<run number\>** artifact (it contains the raw `Homestead.jar`; GitHub always wraps artifact *downloads* in a zip, that part can't be avoided)
-3. Drop `Homestead.jar` into `plugins/` — `/version Homestead` shows the bumped build version (one bump per run)
+**<https://github.com/LaxusCodes/Homestead/releases/download/latest/Homestead.jar>**
+
+Release assets are raw files, no zip wrapper (the same approach the Pumpkin server uses for its binaries). If you'd rather use Actions: the run's **Homestead-0.1.\<run number\>** artifact contains the same jar, but GitHub always wraps artifact downloads in a zip. `/version Homestead` shows the bumped build version (one bump per run).
 
 Push a tag like `v0.1.1` and the workflow additionally creates a **release** with `Homestead.jar` + the zipped resource pack ready for download.
 

@@ -70,3 +70,31 @@ jobs:
           files: |
             dist/Homestead.jar
             Homestead-ResourcePack-*.zip
+
+  publish:
+    # every push to main refreshes a rolling 'latest' release with the raw jar
+    # (release assets are plain files, unlike artifacts which GitHub always zip-wraps on download)
+    name: Publish latest jar
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download built jar
+        uses: actions/download-artifact@v4
+        with:
+          name: Homestead-${{ env.PLUGIN_VERSION }}
+          path: dist
+
+      - name: Replace the rolling 'latest' release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN: ${{ github.run_number }}
+          SHA: ${{ github.sha }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          sleep 3
+          gh release create latest dist/Homestead.jar \
+            --title "Latest build (0.1.$RUN)" \
+            --notes "Built from commit $SHA by the CI (version 0.1.$RUN). Drop Homestead.jar straight into plugins/."

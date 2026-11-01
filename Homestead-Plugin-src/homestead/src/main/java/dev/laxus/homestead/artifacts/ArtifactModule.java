@@ -104,7 +104,7 @@ public final class ArtifactModule extends AbstractModule {
         p.sendMessage(mm("<gold>✦ <yellow>A golden leaf flutters down..."));
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onPickup(EntityPickupItemEvent e) {
         if (e.getEntity() instanceof Player p && isLeaf(e.getItem().getItemStack())) {
             plugin.quest(p, "FIND", "golden_leaf");

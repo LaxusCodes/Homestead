@@ -184,6 +184,7 @@ public final class HomesteadCommand implements CommandExecutor, TabCompleter {
 
     /** Flips the world to the wanted season without changing the time of day. */
     private void applySeason(World w, Season target, int days) {
+        if (Season.of(w, days) == target) return;   // already in it: never skip ahead a whole year
         long full = w.getFullTime();
         long day = full / 24000L;
         long tod = full % 24000L;
@@ -237,12 +238,11 @@ public final class HomesteadCommand implements CommandExecutor, TabCompleter {
                 out.add("golden_leaf");
                 if (plugin.cooking() != null) out.addAll(plugin.cooking().recipeIds());
                 if (plugin.wine() != null) out.addAll(plugin.wine().ids());
+            } else if (args.length == 4 && args[2].equalsIgnoreCase("backpack") && plugin.backpack() != null) {
+                out.addAll(plugin.backpack().skinIds());
             }
         } else if (args.length == 2 && args[0].equalsIgnoreCase("setseason")) {
             for (Season s : Season.values()) out.add(s.name().toLowerCase(Locale.ROOT));
-        } else if (args.length == 4 && args[0].equalsIgnoreCase("give") && args[2].equalsIgnoreCase("backpack")
-                && plugin.backpack() != null) {
-            out.addAll(plugin.backpack().skinIds());
         }
         String last = args[args.length - 1].toLowerCase(Locale.ROOT);
         out.removeIf(s -> !s.toLowerCase(Locale.ROOT).startsWith(last));

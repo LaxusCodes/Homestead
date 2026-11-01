@@ -481,11 +481,12 @@ backpack:
   base: LEATHER
   default-skin: classic
   show-on-back: true
+  hide-when-looking-down: 0    # OFF by default. Degrees of downward pitch past which YOU stop seeing your own pack (also hides it in F5). Others always see it.
   back:             # tune if the worn backpack floats or sinks into the player
-    scale: 1.0
+    scale: 0.9
     x: 0.0
     y: -0.80        # up/down (negative = lower); -0.80 sits the pack on the torso, clear of the head
-    z: 0.27         # distance behind the body (negative = in front)
+    z: -0.27       # distance from the body centre. NEGATIVE = behind the player, positive = in front
   skin-dyes:
     BROWN_DYE: classic
     RED_DYE: explorer

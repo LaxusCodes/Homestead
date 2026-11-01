@@ -141,7 +141,7 @@ public final class DecorModule extends AbstractModule {
 
     // -------------------------------------------------------------- placing
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onPlace(PlayerInteractEvent e) {
         if (e.getHand() != EquipmentSlot.HAND || e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         if (e.getBlockFace() != BlockFace.UP || e.getClickedBlock() == null) return;
@@ -163,8 +163,13 @@ public final class DecorModule extends AbstractModule {
         }
 
         Location target = above.getLocation().add(0.5, 0.0, 0.5);
+        // stand on the real surface: slabs, carpets, soul sand... are lower than a full block
+        Location ip = e.getInteractionPoint();
+        if (ip != null && ip.getY() >= above.getY() - 1.0 && ip.getY() <= above.getY()) {
+            target.setY(ip.getY());
+        }
         target.setYaw(Math.round((p.getLocation().getYaw() + 180f) / 45f) * 45f);
-        spawn(d, target, p.getUniqueId());
+        spawn(d, target, p.getUniqueId(), above);
 
         if (p.getGameMode() != GameMode.CREATIVE) hand.setAmount(hand.getAmount() - 1);
         plugin.quest(p, "DECOR", id);
@@ -182,8 +187,8 @@ public final class DecorModule extends AbstractModule {
                 new AxisAngle4f(0f, 0f, 0f, 1f));
     }
 
-    private void spawn(Def d, Location loc, UUID owner) {
-        String home = blockKey(loc);
+    private void spawn(Def d, Location loc, UUID owner, Block homeBlock) {
+        String home = blockKey(homeBlock.getLocation());
 
         ItemDisplay display = loc.getWorld().spawn(loc, ItemDisplay.class, disp -> {
             disp.setItemStack(createItem(d.id()));
@@ -246,7 +251,7 @@ public final class DecorModule extends AbstractModule {
 
     // ------------------------------------------------------ sit / pick up
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onClickFurniture(PlayerInteractEntityEvent e) {
         if (e.getHand() != EquipmentSlot.HAND) return;
         Entity clicked = e.getRightClicked();
@@ -256,16 +261,28 @@ public final class DecorModule extends AbstractModule {
     }
 
     /** Right-clicking the block the furniture occupies/stands on still works. */
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onBlockClick(PlayerInteractEvent e) {
         if (e.getHand() != EquipmentSlot.HAND || e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         Block b = e.getClickedBlock();
         if (b == null) return;
-        Entity en = furnitureAt(b) != null ? furnitureAt(b)
-                : furnitureAt(b.getRelative(BlockFace.UP));   // clicked the support block
+        Player p = e.getPlayer();
+        if (isFurnitureItem(e.getItem())) return;            // placing furniture is handled by onPlace
+        Entity en = furnitureAt(b);                          // the block the furniture occupies
+        if (en == null && e.getBlockFace() == BlockFace.UP) {
+            // the TOP of the support block only - its sides stay free for building, and
+            // chests / tables / doors under a rug keep working
+            if (!p.isSneaking() && b.getType().isInteractable()) return;
+            en = furnitureAt(b.getRelative(BlockFace.UP));
+        }
         if (en == null) return;
         e.setCancelled(true);
-        interact(e.getPlayer(), en);
+        interact(p, en);
+    }
+
+    private boolean isFurnitureItem(ItemStack it) {
+        return it != null && it.hasItemMeta()
+                && it.getItemMeta().getPersistentDataContainer().has(itemKey, PersistentDataType.STRING);
     }
 
     private void interact(Player p, Entity furniture) {
@@ -292,6 +309,11 @@ public final class DecorModule extends AbstractModule {
             p.sendActionBar(mm("<red>That isn't yours."));
             return;
         }
+        removeFurniture(furniture, d, p.getGameMode() != GameMode.CREATIVE);
+    }
+
+    /** Removes BOTH halves of a piece of furniture (and any seat on it), optionally dropping the item. */
+    private void removeFurniture(Entity furniture, Def d, boolean drop) {
         Location loc = furniture.getLocation();
         Entity peer = peerOf(furniture);
 
@@ -304,7 +326,7 @@ public final class DecorModule extends AbstractModule {
         if (peer != null) peer.remove();
         furniture.remove();
 
-        if (p.getGameMode() != GameMode.CREATIVE) {
+        if (drop) {
             loc.getWorld().dropItemNaturally(loc.clone().add(0, 0.5, 0), createItem(d.id()));
         }
         loc.getWorld().playSound(loc.clone().add(0, 0.4, 0), Sound.BLOCK_STONE_BREAK, 0.7f, 0.9f);
@@ -319,7 +341,27 @@ public final class DecorModule extends AbstractModule {
         if (en == null) return;
         Def d = defOf(en);
         if (d == null) return;
-        pickUp(e.getPlayer(), en, d);
+        removeFurniture(en, d, e.getPlayer().getGameMode() != GameMode.CREATIVE);
+    }
+
+    /** Explosions that destroy the floor drop the furniture too, instead of leaving it floating. */
+    @EventHandler(ignoreCancelled = true)
+    public void onEntityExplode(org.bukkit.event.entity.EntityExplodeEvent e) {
+        dropSupported(e.blockList());
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onBlockExplode(org.bukkit.event.block.BlockExplodeEvent e) {
+        dropSupported(e.blockList());
+    }
+
+    private void dropSupported(List<Block> blocks) {
+        for (Block blk : blocks) {
+            Entity en = furnitureAt(blk.getRelative(BlockFace.UP));
+            if (en == null) continue;
+            Def d = defOf(en);
+            if (d != null) removeFurniture(en, d, true);
+        }
     }
 
     /** Attack-swing on furniture does nothing except a hint, and never damages it. */
@@ -336,12 +378,17 @@ public final class DecorModule extends AbstractModule {
 
     private void sit(Player p, Entity furniture, Def d) {
         Location sl = furniture.getLocation();
-        sl.setY(Math.floor(sl.getY()) + d.seatHeight());
+        sl.setY(sl.getY() + d.seatHeight());
         sl.setPitch(0f);
         Location from = p.getLocation();
         if (from.distanceSquared(sl) > 9.0) {
             p.sendActionBar(mm("<yellow>Walk closer to sit down."));
             return;
+        }
+        ArmorStand old = seats.remove(p.getUniqueId());      // moving to another seat: drop the old one
+        if (old != null) {
+            old.remove();
+            seatByFurniture.values().remove(old);
         }
         ArmorStand stand = furniture.getWorld().spawn(sl, ArmorStand.class, a -> {
             a.setVisible(false);
@@ -449,7 +496,7 @@ public final class DecorModule extends AbstractModule {
     /** The furniture entity whose home block equals b, or null. */
     private Entity furnitureAt(Block b) {
         String k = blockKey(b.getLocation());
-        for (Entity en : b.getWorld().getNearbyEntities(b.getLocation().add(0.5, 0.5, 0.5), 0.75, 0.75, 0.75)) {
+        for (Entity en : b.getWorld().getNearbyEntities(b.getLocation().add(0.5, 0.5, 0.5), 0.75, 1.25, 0.75)) {
             PersistentDataContainer pdc = en.getPersistentDataContainer();
             if (!pdc.has(idKey, PersistentDataType.STRING)) continue;
             String home = pdc.get(homeKey, PersistentDataType.STRING);

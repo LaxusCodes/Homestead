@@ -1,4 +1,4 @@
-# type: BREAK | HARVEST | KILL | CRAFT | COOK | EAT | DRINK | DECOR
+# type: BREAK | HARVEST | KILL | CRAFT | COOK | EAT | DRINK | DECOR | BREW | FIND
 # target: "*" for anything, an exact name (WHEAT, ZOMBIE, vegetable_soup, oak_chair), or a suffix like LOG (matches OAK_LOG)
 # requires: quest ids that must be finished first
 # rewards: items ("MATERIAL:amount" or "meal:recipe_id:amount"), commands ({player}), xp

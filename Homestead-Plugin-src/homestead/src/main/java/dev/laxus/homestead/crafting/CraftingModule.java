@@ -205,11 +205,28 @@ public final class CraftingModule extends AbstractModule {
         }
     }
 
-    /** Wine recipes only accept real must bottles (a plain honey bottle must not match). */
+    /**
+     * Custom items wear a vanilla base material (PAPER, LEATHER, GOLD_NUGGET, BREAD...), so they must never be
+     * eaten as plain ingredients by other recipes (a backpack would vanish with its contents).
+     * Only the wine recipes (must bottles) and the backpack skin recipes may take custom items.
+     * Wine recipes also only accept real must bottles (a plain honey bottle must not match).
+     */
     @EventHandler
     public void onPrepare(PrepareItemCraftEvent e) {
         if (!(e.getRecipe() instanceof org.bukkit.Keyed k)) return;
-        String must = wineChecks.get(k.getKey().getKey());
+        String name = k.getKey().getKey();
+        boolean ours = k.getKey().getNamespace().equals(plugin.getName().toLowerCase(Locale.ROOT));
+        boolean allowCustom = ours && (wineChecks.containsKey(name) || name.startsWith("backpack_skin_"));
+        if (!allowCustom) {
+            for (ItemStack it : e.getInventory().getMatrix()) {
+                if (plugin.isHomesteadItem(it)) {
+                    e.getInventory().setResult(null);
+                    return;
+                }
+            }
+            return;
+        }
+        String must = wineChecks.get(name);
         if (must == null || plugin.cooking() == null) return;
         int ok = 0;
         for (ItemStack it : e.getInventory().getMatrix()) {
@@ -231,33 +248,40 @@ public final class CraftingModule extends AbstractModule {
             return;
         }
         if (amount > 1) out.setAmount(amount);
+        try {
+            addRecipe(key, out, spec, keyName);
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            plugin.getLogger().warning("Crafting recipe '" + keyName + "' is invalid: " + ex.getMessage());
+            return;
+        }
+        keys.add(key);
+        byKey.put(key.getKey(), result);
+        for (Player p : Bukkit.getOnlinePlayers()) p.discoverRecipe(key);
+    }
+
+    private void addRecipe(NamespacedKey key, ItemStack out, RecipeSpec spec, String keyName) {
         if (spec.shapeless() != null) {
             ShapelessRecipe r = new ShapelessRecipe(key, out);
             for (String m : spec.shapeless()) {
                 Material mat = Material.matchMaterial(m);
                 if (mat == null) {
-                    plugin.getLogger().warning("Crafting recipe '" + keyName + "': unknown material " + m);
-                    return;
+                    throw new IllegalArgumentException("unknown material " + m);
                 }
                 r.addIngredient(new RecipeChoice.MaterialChoice(mat));
             }
-            Bukkit.addRecipe(r);
+            if (!Bukkit.addRecipe(r)) throw new IllegalStateException("could not be registered");
         } else {
             ShapedRecipe r = new ShapedRecipe(key, out);
             r.shape(spec.shape());
             for (Map.Entry<Character, String> en : spec.ingredients().entrySet()) {
                 Material mat = Material.matchMaterial(en.getValue());
                 if (mat == null) {
-                    plugin.getLogger().warning("Crafting recipe '" + keyName + "': unknown material " + en.getValue());
-                    return;
+                    throw new IllegalArgumentException("unknown material " + en.getValue());
                 }
                 r.setIngredient(en.getKey(), new RecipeChoice.MaterialChoice(mat));
             }
-            Bukkit.addRecipe(r);
+            if (!Bukkit.addRecipe(r)) throw new IllegalStateException("could not be registered");
         }
-        keys.add(key);
-        byKey.put(key.getKey(), result);
-        for (Player p : Bukkit.getOnlinePlayers()) p.discoverRecipe(key);
     }
 
     /** result forms: "decor:<id>", "<furniture id>", "meal:<id>", "wine:<id>", "backpack", "backpack:<skin>", "golden_leaf". */
@@ -292,13 +316,6 @@ public final class CraftingModule extends AbstractModule {
     }
 
     // ---------------------------------------------------------------- events
-
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onCraft(CraftItemEvent e) {
-        if (e.getWhoClicked() instanceof Player p) {
-            plugin.quest(p, "CRAFT", e.getRecipe().getResult().getType().name());
-        }
-    }
 
     @EventHandler
     public void onJoin(PlayerJoinEvent e) {

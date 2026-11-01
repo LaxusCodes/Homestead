@@ -76,7 +76,7 @@ def slot(kind):
             if ch == ".":
                 continue
             key = "K" if ch == "K" else "W" if ch == "W" else "B"
-            use_full = kind == "full" or (kind == "half" and x <= 4)
+            use_full = kind == "full" or (kind == "half" and x >= 5)   # bar fills right-to-left, so a half drop is filled on its RIGHT side
             img.putpixel((x, y), (full if use_full else empty)[key])
     return img
 

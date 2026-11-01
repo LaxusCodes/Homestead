@@ -260,7 +260,7 @@ public final class SurvivalModule extends AbstractModule {
 
     // --------------------------------------------------------------- events
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onConsume(PlayerItemConsumeEvent e) {
         if (!plugin.getConfig().getBoolean("thirst.enabled", true)) return;
         ItemStack it = e.getItem();

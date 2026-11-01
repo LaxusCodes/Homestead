@@ -289,9 +289,10 @@ public final class WineModule extends AbstractModule {
         String key = keyOf(barrel.getBlock());
         if (count == 0) {
             if (stored != null || start >= 0) {
-                pdc.remove(typeKey);
-                pdc.remove(startKey);
-                barrel.update();
+                mutate(barrel, c -> {
+                    c.remove(typeKey);
+                    c.remove(startKey);
+                });
             }
             tracked.remove(key);
             return;
@@ -299,9 +300,12 @@ public final class WineModule extends AbstractModule {
 
         if (stored == null || start < 0 || !stored.equals(found.id())) {
             // a new batch of must was put in - the timer starts now
-            pdc.set(typeKey, PersistentDataType.STRING, found.id());
-            pdc.set(startKey, PersistentDataType.LONG, barrel.getWorld().getGameTime());
-            barrel.update();
+            final String fid = found.id();
+            final long startedAt = barrel.getWorld().getGameTime();
+            mutate(barrel, c -> {
+                c.set(typeKey, PersistentDataType.STRING, fid);
+                c.set(startKey, PersistentDataType.LONG, startedAt);
+            });
             tracked.add(key);
             return;
         }
@@ -327,9 +331,11 @@ public final class WineModule extends AbstractModule {
         }
         if (converted == 0) return;
         inv.setContents(contents);
-        pdc.remove(typeKey);
-        pdc.remove(startKey);
-        barrel.update();
+        // write the flags through a FRESH state: update() on the old snapshot could put the must bottles back
+        mutate(barrel, c -> {
+            c.remove(typeKey);
+            c.remove(startKey);
+        });
         tracked.remove(key);
         barrel.getWorld().playSound(barrel.getLocation(), Sound.BLOCK_BREWING_STAND_BREW, 0.8f, 1.2f);
         Player nearest = null;
@@ -342,6 +348,14 @@ public final class WineModule extends AbstractModule {
         if (nearest != null && plugin.quests() != null) {
             plugin.quests().progress(nearest, "BREW", found.id(), converted);
         }
+    }
+
+    /** Changes the barrel's ferment flags on a fresh block state, so the live inventory is never overwritten. */
+    private void mutate(Barrel barrel, java.util.function.Consumer<PersistentDataContainer> change) {
+        org.bukkit.block.Block blk = barrel.getBlock();
+        if (blk.getType() != Material.BARREL || !(blk.getState() instanceof Barrel fresh)) return;
+        change.accept(fresh.getPersistentDataContainer());
+        fresh.update();
     }
 
     /** Number of must bottles currently sitting in the barrel. */
@@ -359,6 +373,12 @@ public final class WineModule extends AbstractModule {
     // ------------------------------------------------------------ drinking
 
     @EventHandler
+    public void onQuit(org.bukkit.event.player.PlayerQuitEvent e) {
+        drunk.remove(e.getPlayer().getUniqueId());
+        drunkAt.remove(e.getPlayer().getUniqueId());
+    }
+
+    @EventHandler(ignoreCancelled = true)
     public void onDrink(PlayerItemConsumeEvent e) {
         ItemMeta m = e.getItem().getItemMeta();
         if (m == null) return;

@@ -10,14 +10,18 @@ import dev.laxus.homestead.quests.QuestModule;
 import dev.laxus.homestead.survival.SurvivalModule;
 import dev.laxus.homestead.ui.HomesteadMenus;
 import dev.laxus.homestead.wine.WineModule;
+import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.logging.Level;
 
 public final class HomesteadPlugin extends JavaPlugin {
     private final List<AbstractModule> modules = new ArrayList<>();
@@ -80,15 +84,25 @@ public final class HomesteadPlugin extends JavaPlugin {
 
         for (AbstractModule m : new AbstractModule[]{survival, farming, cooking, quests, decor, wine,
                 backpack, artifacts, crafting, menus}) {
-            if (m != null) {
-                modules.add(m);
+            if (m == null) continue;
+            modules.add(m);
+            try {
                 m.enable();
+            } catch (Throwable t) {
+                // one broken module must not stop the whole plugin from loading
+                getLogger().log(Level.SEVERE, "Module " + m.getClass().getSimpleName() + " failed to start", t);
             }
         }
     }
 
     private void stopModules() {
-        for (AbstractModule m : modules) m.disable();
+        for (AbstractModule m : modules) {
+            try {
+                m.disable();
+            } catch (Throwable t) {
+                getLogger().log(Level.SEVERE, "Module " + m.getClass().getSimpleName() + " failed to stop cleanly", t);
+            }
+        }
         modules.clear();
         survival = null;
         farming = null;
@@ -100,6 +114,16 @@ public final class HomesteadPlugin extends JavaPlugin {
         artifacts = null;
         crafting = null;
         menus = null;
+    }
+
+    /** True for any item made by this plugin (furniture, meals, wine, backpacks, the Golden Leaf). */
+    public boolean isHomesteadItem(ItemStack it) {
+        if (it == null || !it.hasItemMeta()) return false;
+        String ns = getName().toLowerCase(Locale.ROOT);
+        for (NamespacedKey k : it.getItemMeta().getPersistentDataContainer().getKeys()) {
+            if (k.getNamespace().equals(ns)) return true;
+        }
+        return false;
     }
 
     public boolean worldAllowed(World w) {

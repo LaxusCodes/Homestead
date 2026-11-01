@@ -225,7 +225,7 @@ public final class CookingModule extends AbstractModule {
         return below.getBlockData() instanceof Campfire cf && cf.isLit();
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onInteract(PlayerInteractEvent e) {
         if (e.getHand() != EquipmentSlot.HAND || e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         Block b = e.getClickedBlock();
@@ -244,7 +244,7 @@ public final class CookingModule extends AbstractModule {
         }
 
         if (pot.ready != null) {
-            if (hm == pot.ready.container()) {
+            if (hm == pot.ready.container() && !plugin.isHomesteadItem(hand)) {
                 serve(p, pot, hand);
             } else {
                 p.sendActionBar(mm("<yellow>Ready! Right-click with a " + nice(pot.ready.container()) + " to serve."));
@@ -262,7 +262,7 @@ public final class CookingModule extends AbstractModule {
             return;
         }
 
-        if (!knownIngredients.contains(hm)) {
+        if (!knownIngredients.contains(hm) || plugin.isHomesteadItem(hand)) {
             p.sendActionBar(mm("<red>That doesn't belong in a stew."));
             return;
         }
@@ -346,9 +346,11 @@ public final class CookingModule extends AbstractModule {
         }
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onBreak(BlockBreakEvent e) {
         Block b = e.getBlock();
+        // breaking the campfire under a pot also ends that pot (no stale contents when a cauldron is placed again)
+        if (b.getType() == Material.CAMPFIRE || b.getType() == Material.SOUL_CAMPFIRE) b = b.getRelative(BlockFace.UP);
         if (b.getType() != Material.CAULDRON) return;
         Pot pot = pots.remove(key(b));
         if (pot != null) dropContents(pot);
@@ -356,6 +358,10 @@ public final class CookingModule extends AbstractModule {
 
     private void dropContents(Pot pot) {
         if (pot.loc.getWorld() == null) return;
+        if (pot.ready != null && pot.servingsLeft < pot.ready.servings()) {
+            pot.contents.clear();   // already partly served: giving the raw ingredients back would duplicate food
+            return;
+        }
         for (Map.Entry<Material, Integer> en : pot.contents.entrySet()) {
             int left = en.getValue();
             while (left > 0) {
@@ -369,7 +375,7 @@ public final class CookingModule extends AbstractModule {
 
     // ------------------------------------------------------------ eating
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onConsume(PlayerItemConsumeEvent e) {
         ItemMeta m = e.getItem().getItemMeta();
         if (m == null) return;

@@ -83,6 +83,8 @@ public final class BackpackModule extends AbstractModule {
     private final List<NamespacedKey> recipeKeys = new ArrayList<>();
     private final Map<UUID, ItemDisplay> worn = new HashMap<>();
     private final Map<UUID, String> wornSkin = new HashMap<>();
+    private final Map<UUID, Float> bodyYaw = new HashMap<>();      // simulated body rotation (head yaw is NOT the body)
+    private final Map<UUID, double[]> lastXZ = new HashMap<>();
 
     private final NamespacedKey markerKey;
     private final NamespacedKey idKey;
@@ -149,6 +151,8 @@ public final class BackpackModule extends AbstractModule {
         for (ItemDisplay d : worn.values()) d.remove();
         worn.clear();
         wornSkin.clear();
+        bodyYaw.clear();
+        lastXZ.clear();
         for (NamespacedKey k : recipeKeys) Bukkit.removeRecipe(k);
         recipeKeys.clear();
         dyeRecipes.clear();
@@ -266,14 +270,54 @@ public final class BackpackModule extends AbstractModule {
                 d.setItemStack(shown);
                 wornSkin.put(id, skinId);
             }
-            d.setRotation(p.getLocation().getYaw(), 0f);
+            d.setRotation(updateBodyYaw(p), 0f);
+
+            // Hide the pack from its own wearer while they look steeply down, so it doesn't fill their screen.
+            // Other players still see it.
+            double limit = plugin.getConfig().getDouble("backpack.hide-when-looking-down", 0.0);
+            boolean hideSelf = limit > 0 && p.getLocation().getPitch() > limit;
+            if (hideSelf && !p.canSee(d)) { /* already hidden */ }
+            else if (hideSelf) p.hideEntity(plugin, d);
+            else if (!p.canSee(d)) p.showEntity(plugin, d);
         }
+    }
+
+    /**
+     * Mimics vanilla body rotation: the body only follows the head while walking, or when the head
+     * is turned more than 75 degrees away from it. Standing still and looking around leaves the pack put.
+     */
+    private float updateBodyYaw(Player p) {
+        UUID id = p.getUniqueId();
+        float head = p.getLocation().getYaw();
+        float body = bodyYaw.getOrDefault(id, head);
+
+        double px = p.getLocation().getX(), pz = p.getLocation().getZ();
+        double[] last = lastXZ.get(id);
+        boolean moving = last != null && (px - last[0]) * (px - last[0]) + (pz - last[1]) * (pz - last[1]) > 0.0004;
+        lastXZ.put(id, new double[]{px, pz});
+
+        float diff = wrap180(head - body);
+        if (moving) {
+            body += diff * 0.4f;                       // ease towards the look direction while walking
+        } else if (Math.abs(diff) > 75f) {
+            body = head - Math.signum(diff) * 75f;     // head turned too far: drag the body along
+        }
+        body = wrap180(body);
+        bodyYaw.put(id, body);
+        return body;
+    }
+
+    private static float wrap180(float a) {
+        a %= 360f;
+        if (a >= 180f) a -= 360f;
+        if (a < -180f) a += 360f;
+        return a;
     }
 
     private ItemDisplay spawnWorn(Player p) {
         double x = plugin.getConfig().getDouble("backpack.back.x", 0.0);
         double y = plugin.getConfig().getDouble("backpack.back.y", -0.80);
-        double z = plugin.getConfig().getDouble("backpack.back.z", 0.27);
+        double z = plugin.getConfig().getDouble("backpack.back.z", -0.27);
         float sc = (float) plugin.getConfig().getDouble("backpack.back.scale", 1.0);
         ItemDisplay d = p.getWorld().spawn(p.getLocation(), ItemDisplay.class, disp -> {
             disp.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.NONE);
@@ -290,6 +334,8 @@ public final class BackpackModule extends AbstractModule {
     private void removeWorn(UUID id) {
         ItemDisplay d = worn.remove(id);
         wornSkin.remove(id);
+        bodyYaw.remove(id);
+        lastXZ.remove(id);
         if (d != null) d.remove();
     }
 
@@ -316,8 +362,11 @@ public final class BackpackModule extends AbstractModule {
         if (e.getAction() != Action.RIGHT_CLICK_AIR && e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         ItemStack hand = e.getItem();
         if (!isBackpack(hand)) return;
-        e.setCancelled(true);
         Player p = e.getPlayer();
+        org.bukkit.block.Block clicked = e.getClickedBlock();
+        // chests, doors, crafting tables... still work while a backpack is in hand (sneak to open the pack on them)
+        if (clicked != null && !p.isSneaking() && clicked.getType().isInteractable()) return;
+        e.setCancelled(true);
         if (!plugin.worldAllowed(p.getWorld()) || viewingBackpack(p)) return;
         open(p, hand);
     }
@@ -378,7 +427,16 @@ public final class BackpackModule extends AbstractModule {
     public void onPrepare(PrepareItemCraftEvent e) {
         if (!(e.getRecipe() instanceof Keyed k)) return;
         String skinId = dyeRecipes.get(k.getKey().getKey());
-        if (skinId == null) return;
+        if (skinId == null) {
+            // any other recipe would eat the backpack as plain leather - and its contents with it
+            for (ItemStack it : e.getInventory().getMatrix()) {
+                if (isBackpack(it)) {
+                    e.getInventory().setResult(null);
+                    return;
+                }
+            }
+            return;
+        }
         ItemStack source = null;
         for (ItemStack it : e.getInventory().getMatrix()) {
             if (isBackpack(it)) {

@@ -2,6 +2,7 @@ package dev.laxus.homestead.quests;
 
 import dev.laxus.homestead.AbstractModule;
 import dev.laxus.homestead.HomesteadPlugin;
+import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
@@ -12,6 +13,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.inventory.CraftItemEvent;
@@ -258,10 +260,11 @@ public final class QuestModule extends AbstractModule {
 
     // -------------------------------------------------------------- events
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBreak(BlockBreakEvent e) {
         Block b = e.getBlock();
         Player p = e.getPlayer();
+        if (p.getGameMode() == GameMode.CREATIVE) return;
         String name = b.getType().name();
         BlockData bd = b.getBlockData();
         if (bd instanceof Ageable a && a.getAge() == a.getMaximumAge()) {
@@ -276,7 +279,7 @@ public final class QuestModule extends AbstractModule {
         if (killer != null) progress(killer, "KILL", e.getEntityType().name(), 1);
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onCraft(CraftItemEvent e) {
         HumanEntity he = e.getWhoClicked();
         if (!(he instanceof Player p)) return;

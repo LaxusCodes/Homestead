@@ -17,14 +17,21 @@ cfg_path, pack = sys.argv[1], sys.argv[2]
 cfg = yaml.safe_load(open(cfg_path, encoding="utf-8"))
 
 by_base = defaultdict(list)  # base item id -> [(cmd, model)]
-for sec in (cfg.get("cooking", {}).get("recipes", {}), cfg.get("decor", {}).get("items", {}),
-            cfg.get("wine", {}).get("types", {}),
-            {**cfg.get("backpack", {}).get("skins", {}), "golden_leaf": cfg.get("artifacts", {}).get("golden-leaf", {})}):
+bp = cfg.get("backpack", {})
+bp_base = bp.get("base", "CHAINMAIL_CHESTPLATE") or "CHAINMAIL_CHESTPLATE"
+for base_holder, sec in (("decor", cfg.get("decor", {}).get("items", {})),
+                         ("cooking", cfg.get("cooking", {}).get("recipes", {})),
+                         ("wine", cfg.get("wine", {}).get("types", {})),
+                         ("misc", {"golden_leaf": cfg.get("artifacts", {}).get("golden-leaf", {})}),
+                         ("backpack", bp.get("skins", {}))):
     for _id, r in sec.items():
         cmd, model = r.get("cmd", 0), r.get("model", "")
         if not cmd or not model:
             continue
-        base = r.get("base") or r.get("material") or "PAPER"
+        base = r.get("base") or r.get("material")
+        if base is None:
+            # backpack skins inherit the top-level backpack.base; everything else sits on PAPER
+            base = bp_base if base_holder == "backpack" else "PAPER"
         by_base[base.lower()].append((int(cmd), model))
 
 mc = os.path.join(pack, "assets", "minecraft")

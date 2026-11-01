@@ -23,9 +23,11 @@ import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.potion.PotionType;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -191,6 +193,8 @@ public final class CookingModule extends AbstractModule {
         ItemMeta m = it.getItemMeta();
         m.displayName(item(r.name()));
         if (r.cmd() > 0) m.setCustomModelData(r.cmd());
+        // a cooked water bottle needs a vanilla base potion type or it is not drinkable
+        if (r.base() == Material.POTION && m instanceof PotionMeta pm) pm.setBasePotionType(PotionType.WATER);
         m.getPersistentDataContainer().set(mealKey, PersistentDataType.STRING, r.id());
         it.setItemMeta(m);
         return it;
@@ -264,6 +268,11 @@ public final class CookingModule extends AbstractModule {
 
         if (!knownIngredients.contains(hm) || plugin.isHomesteadItem(hand)) {
             p.sendActionBar(mm("<red>That doesn't belong in a stew."));
+            return;
+        }
+        if (hm == Material.POTION && !isWaterBottle(hand)) {
+            // Potion (the Material) means any potion - a brewed one would make a nasty stew
+            p.sendActionBar(mm("<yellow>The pot only boils plain water bottles."));
             return;
         }
         if (pot.total() >= MAX_ITEMS) {
@@ -392,6 +401,10 @@ public final class CookingModule extends AbstractModule {
             if (r.warmth() > 0) s.warm(p, r.warmth());
         }
         plugin.quest(p, "EAT", r.id());
+    }
+
+    private static boolean isWaterBottle(ItemStack it) {
+        return it.getItemMeta() instanceof PotionMeta pm && pm.getBasePotionType() == PotionType.WATER;
     }
 
     private static String nice(Material m) {

@@ -8,12 +8,12 @@ Requires Paper **1.21.1+** and Java 21. Custom items use `custom_model_data`; th
 ## Modules (toggle in config.yml → `modules`)
 | Module | What it does |
 |---|---|
-| survival | 4 seasons, effective temperature (cold overlay, warm near fires / in leather / after hot meals), thirst bar, drink from water (sneak + right-click, empty hand) |
+| survival | 4 seasons, effective temperature (cold overlay, warm near fires / in leather / after hot meals), thirst bar (full bar drains to 0 in 20 minutes; unboiled water can poison you - boil it in the pot), drink from water (sneak + right-click, empty hand) |
 | farming | crops grow faster in spring, slower in winter; light ≥ 12 nearby = heated greenhouse |
 | cooking | cauldron on a lit campfire = cooking pot. Add ingredients, stir with a stick, serve with a bowl. Meals use Farmer's Delight models from the pack |
 | quests | chains in `quests.yml` (BREAK, HARVEST, KILL, CRAFT, COOK, EAT, DRINK, DECOR), item/command/xp rewards, `/quests` |
 | decor | 5 chairs, stool, tatami mat, rug, 4 cabinets, pot, stove, baskets, rice bale, cutting board (ItemDisplay + Interaction). Right-click the top of a block to place, right-click to sit (clicking the block the furniture stands on also works), sneak + right-click to pick up. Breaking the support block drops it back |
-| backpack | craft with 7 leather + string + chest (`LSL/LCL/LLL`). Right-click to open; contents live inside the item. Shown as a detailed 17-20 part 3D model (256px texture: leather grain, stitching, brass buckles, bottle pockets, bedroll/top roll per skin) on your back while it's in your inventory. 5 skins (classic, explorer, shadow, camper, forest): craft backpack + dye (brown, red, black, orange, green) to re-skin, contents are kept |
+| backpack | a wearable textured chestplate (chainmail base, flipped: it wipes the vanilla armour bonus). One item = one unique id, contents live inside the item. Craft with 7 leather + string + chest (`LSL/LCL/LLL`); dye (brown, red, black, orange, green) to re-skin a backpack + its 5 skins (classic, explorer, shadow, camper, forest). Open: right-click with the pack in hand, or sneak + right-click with an empty hand while wearing. Wearing it in the chest slot shows the detailed 17-20 part 3D model (256px texture: leather grain, stitching, brass buckles, bottle pockets, bedroll/top roll per skin) on your back - the wearer never sees it in first person, other players do |
 | artifacts | Golden Leaf: rare drop from leaves (3x more in autumn). Hold it for Speed + Luck |
 | wine | cook a must, put the bottles in a barrel, wait - they turn into wine inside the barrel, with a live progress bar and countdown on the action bar. Drinking gives Nausea (stacks if you drink fast) |
 | crafting | crafting-table recipes for every furniture piece + the Golden Leaf; add your own in `crafting.recipes` |
@@ -69,8 +69,9 @@ python tools/verify_pack.py <unzipped pack folder> src/main/resources/config.yml
 Then re-zip the pack (pack.mcmeta must be at the zip root) and update the SHA-1 in server.properties.
 
 ## Backpack on your back
-The worn model is an ItemDisplay riding the player (defaults `y: -0.80`, `z: 0.27` sit it on the torso, clear of the head). If it floats, sinks or sits in front of you, change `backpack.back.y` / `z` / `scale` in config.yml and run `/homestead reload`.
-Set `backpack.show-on-back: false` to turn the worn model off.
+The worn model is an ItemDisplay riding the player (defaults `y: -0.80`, `z: -0.27` sit it on the torso, clear of the head). If it floats, sinks or sits in front of you, change `backpack.back.y` / `z` / `scale` in config.yml and run `/homestead reload`.
+Set `backpack.show-on-back: false` to turn the worn model off. `backpack.hide-from-self: true` (default) keeps the pack invisible to its wearer so it never blocks first person; set it false to let the wearer see it on F5 too.
+The pack is a plain chainmail chestplate with zero armour: vanilla texture on the body, the backpack model over it for everyone else. equipping happens by moving it into the chest slot (right-clicking with it in hand opens the pack instead).
 
 ## Tuning notes
 - Sitting height differs per model: adjust `seat-height` per furniture in config. If a model renders too low/high, use its `display-y`.

@@ -35,15 +35,18 @@ def tpath(t):
     return os.path.join(A, ns, "textures", p + ".png")
 
 # ---- 1) every configured custom model: legacy override + modern definition agree
+# Recipes without a cmd/model (e.g. boiled water, a plain vanilla bottle) are excluded here.
 entries = []
+def has_model(v):
+    return bool(v.get("cmd")) and bool(v.get("model"))
 for k, v in cfg["decor"]["items"].items():
-    entries.append((v["material"].lower(), v["cmd"], v["model"], "decor:" + k))
+    if has_model(v): entries.append((v["material"].lower(), v["cmd"], v["model"], "decor:" + k))
 for k, v in cfg["backpack"]["skins"].items():
-    entries.append((v["base"].lower(), v["cmd"], v["model"], "backpack:" + k))
+    if has_model(v): entries.append(((v.get("base") or cfg["backpack"].get("base", "CHAINMAIL_CHESTPLATE")).lower(), v["cmd"], v["model"], "backpack:" + k))
 for k, v in cfg["cooking"]["recipes"].items():
-    entries.append((v["base"].lower(), v["cmd"], v["model"], "meal:" + k))
+    if has_model(v): entries.append((v["base"].lower(), v["cmd"], v["model"], "meal:" + k))
 for k, v in cfg["wine"]["types"].items():
-    entries.append((v["base"].lower(), v["cmd"], v["model"], "wine:" + k))
+    if has_model(v): entries.append((v["base"].lower(), v["cmd"], v["model"], "wine:" + k))
 gl = cfg.get("artifacts", {}).get("golden-leaf")
 if gl:
     entries.append((gl.get("base", "PAPER").lower(), gl["cmd"], gl["model"], "golden_leaf"))

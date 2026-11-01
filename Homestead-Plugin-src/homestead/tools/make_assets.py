@@ -49,7 +49,8 @@ PAL_S = {"P": "#ff8fb8", "Y": "#ffd93b", "G": "#4caf50", "O": "#ffa726", "L": "#
 
 # ------------------------------------------------------------------ thirst bar glyphs (81x9 each)
 # Same geometry as the vanilla hunger bar: 10 icons, 9px wide on an 8px pitch = 81px, so the glyph
-# lines up with the hunger bar pixel for pixel. Like hunger, it empties from the LEFT.
+# lines up with the hunger bar pixel for pixel. It mirrors the hunger bar: empty icons collect on
+# the LEFT, full drops stay on the RIGHT, the half drop is the leftmost of the filled run.
 DROP_SHAPE = [
     "...KKK...",
     "..KBBBK..",
@@ -76,7 +77,8 @@ def slot(kind):
             if ch == ".":
                 continue
             key = "K" if ch == "K" else "W" if ch == "W" else "B"
-            use_full = kind == "full" or (kind == "half" and x >= 5)   # bar fills right-to-left, so a half drop is filled on its RIGHT side
+            # a half drop keeps its right half (same look family as the vanilla half drumstick)
+            use_full = kind == "full" or (kind == "half" and x >= 5)
             img.putpixel((x, y), (full if use_full else empty)[key])
     return img
 
@@ -101,19 +103,8 @@ def thirst_bar(level):
     return mark(img)
 
 # ------------------------------------------------------------------ temperature bar glyphs (45x9 each)
-THERMO = [
-    ".KKKK....",
-    ".KGGK....",
-    ".KGGK....",
-    ".KGGK....",
-    ".KGGK....",
-    ".KGGK....",
-    ".KMMMK...",
-    ".KMMMK...",
-    ".KKKKK...",
-]
 def temp_bar(level):
-    """level 0..4 -> 45x9 glyph: thermometer + 32px fill bar."""
+    """level 0..4 -> 45x9 glyph, one plain fill bar: wider = further from mild. Season icon goes next to it."""
     img = Image.new("RGBA", (TEMP_W, 9), (0, 0, 0, 0))
     colors = [
         [(46, 84, 214, 255), (154, 196, 255, 255)],   # freezing
@@ -123,24 +114,17 @@ def temp_bar(level):
         [(229, 57, 53, 255), (255, 205, 210, 255)],   # hot
     ][level]
     main, hi = colors
-    for x in range(12, 44):
-        for y in (1, 7):
-            img.putpixel((x, y), (14, 14, 16, 220))
+    # dark frame across the whole glyph
     for y in range(1, 8):
-        img.putpixel((11, y), (14, 14, 16, 220))
+        img.putpixel((0, y), (14, 14, 16, 220))
         img.putpixel((44, y), (14, 14, 16, 220))
-    segs = {0: 8, 1: 14, 2: 20, 3: 26, 4: 32}[level]
-    for x in range(12, 12 + segs):
+    for x in range(0, 45):
+        img.putpixel((x, 1), (14, 14, 16, 220))
+        img.putpixel((x, 7), (14, 14, 16, 220))
+    segs = {0: 9, 1: 16, 2: 24, 3: 32, 4: 43}[level]
+    for x in range(1, 1 + segs):
         for y in range(2, 7):
             img.putpixel((x, y), main if y > 4 else hi)
-    for y, row in enumerate(THERMO):
-        for x, ch in enumerate(row):
-            if ch == ".":
-                continue
-            col = main if ch == "M" else (36, 36, 38, 255) if ch == "K" else (207, 207, 207, 255)
-            if ch == "G":
-                col = hi if y <= 5 else main
-            img.putpixel((x, y), col)
     return mark(img)
 
 # -------------------------------------------------------------- assemble HUD atlases + font json

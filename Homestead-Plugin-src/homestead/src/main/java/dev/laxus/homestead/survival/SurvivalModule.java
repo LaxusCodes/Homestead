@@ -264,10 +264,14 @@ public final class SurvivalModule extends AbstractModule {
     public void onConsume(PlayerItemConsumeEvent e) {
         if (!plugin.getConfig().getBoolean("thirst.enabled", true)) return;
         ItemStack it = e.getItem();
+        // Homestead drinks (boiled water, musts, wines, meals) are handled by the cooking module and
+        // are always clean. The vanilla drinks below count as unboiled water.
+        if (plugin.isHomesteadItem(it)) return;
         double add = 0.0;
         if (it.getType() == Material.POTION && it.getItemMeta() instanceof PotionMeta pm
                 && pm.getBasePotionType() == PotionType.WATER) {
             add = plugin.getConfig().getDouble("thirst.water-bottle", 6.0);
+            maybePoison(e.getPlayer());
             plugin.quest(e.getPlayer(), "DRINK", "WATER");
         } else if (it.getType() == Material.MILK_BUCKET) {
             add = 4.0;
@@ -275,6 +279,15 @@ public final class SurvivalModule extends AbstractModule {
             add = 1.0;
         }
         if (add > 0) addThirst(e.getPlayer(), add);
+    }
+
+    /** Unboiled water can make you sick - short Poison. Boil water in the pot to make it safe. */
+    private void maybePoison(Player p) {
+        double dirty = plugin.getConfig().getDouble("thirst.dirty-water-chance", 0.35);
+        if (ThreadLocalRandom.current().nextDouble() < dirty) {
+            p.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 100, 0));
+            p.sendActionBar(mm("<yellow>That water wasn't boiled... boil it in the pot first."));
+        }
     }
 
     /** Sneak + right-click (empty hand) while looking at water to drink from it. */
@@ -298,11 +311,7 @@ public final class SurvivalModule extends AbstractModule {
         addThirst(p, plugin.getConfig().getDouble("thirst.water-source", 2.0));
         p.playSound(p.getLocation(), Sound.ENTITY_GENERIC_DRINK, 0.6f, 1f);
         plugin.quest(p, "DRINK", "WATER");
-        double dirty = plugin.getConfig().getDouble("thirst.dirty-water-chance", 0.25);
-        if (ThreadLocalRandom.current().nextDouble() < dirty) {
-            p.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 200, 0));
-            p.sendActionBar(mm("<yellow>That water wasn't very clean..."));
-        }
+        maybePoison(p);
     }
 
     @EventHandler

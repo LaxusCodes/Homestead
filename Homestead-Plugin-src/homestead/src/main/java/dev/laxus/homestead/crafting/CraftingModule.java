@@ -22,10 +22,12 @@ import org.bukkit.inventory.ShapelessRecipe;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Crafting-table recipes for everything that isn't cooked or brewed.
@@ -176,10 +178,11 @@ public final class CraftingModule extends AbstractModule {
     private void registerCookedItems(ConfigurationSection custom) {
         CookingModule cook = plugin.cooking();
         if (cook == null) return;
+        Set<String> skip = new HashSet<>(plugin.getConfig().getStringList("crafting.auto-meals-skip"));
         if (plugin.getConfig().getBoolean("crafting.auto-meals", true)) {
             for (String id : cook.recipeIds()) {
                 CookingModule.Recipe r = cook.recipeOf(id);
-                if (r == null || (custom != null && custom.contains(id))) continue;
+                if (r == null || skip.contains(id) || (custom != null && custom.contains(id))) continue;
                 List<String> mats = new ArrayList<>();
                 for (Map.Entry<Material, Integer> en : r.ingredients().entrySet()) {
                     for (int i = 0; i < en.getValue(); i++) mats.add(en.getKey().name());

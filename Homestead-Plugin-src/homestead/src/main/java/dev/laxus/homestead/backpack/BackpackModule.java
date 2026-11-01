@@ -53,10 +53,12 @@ import static dev.laxus.homestead.Text.item;
 import static dev.laxus.homestead.Text.mm;
 
 /**
- * Portable storage with skins, shown on the player's back.
- *  - Right-click a backpack to open it. Contents are stored inside the item itself.
- *  - While a backpack is anywhere in your inventory (not in your hands) a 3D model is shown on your back.
- *  - Craft: leather x7 + string + chest. Re-skin: backpack + dye in the crafting grid (contents are kept).
+ * Portable storage worn as a textured chestplate (default base: chainmail, zero armour stats).
+ *  - Right-click the pack in hand, or sneak + right-click (empty hand) while wearing it, to open.
+ *  - Contents are stored inside the item itself.
+ *  - While a backpack is worn in the chest slot its 3D model is shown on the back - but never to
+ *    the wearer, so first person never gets a pack in the face.
+ *  - Craft: leather x7 + string + chest. Re-skin: backpack + dye in the crafting grid (contents kept).
  */
 public final class BackpackModule extends AbstractModule {
 
@@ -85,6 +87,7 @@ public final class BackpackModule extends AbstractModule {
     private final Map<UUID, String> wornSkin = new HashMap<>();
     private final Map<UUID, Float> bodyYaw = new HashMap<>();      // simulated body rotation (head yaw is NOT the body)
     private final Map<UUID, double[]> lastXZ = new HashMap<>();
+    private final Map<UUID, Long> openCooldown = new HashMap<>();  // stop sneak + right-click from double-opening
 
     private final NamespacedKey markerKey;
     private final NamespacedKey idKey;
@@ -153,6 +156,7 @@ public final class BackpackModule extends AbstractModule {
         wornSkin.clear();
         bodyYaw.clear();
         lastXZ.clear();
+        openCooldown.clear();
         for (NamespacedKey k : recipeKeys) Bukkit.removeRecipe(k);
         recipeKeys.clear();
         dyeRecipes.clear();
@@ -175,8 +179,8 @@ public final class BackpackModule extends AbstractModule {
     }
 
     private Material baseMaterial() {
-        Material m = Material.matchMaterial(plugin.getConfig().getString("backpack.base", "LEATHER"));
-        return m == null ? Material.LEATHER : m;
+        Material m = Material.matchMaterial(plugin.getConfig().getString("backpack.base", "CHAINMAIL_CHESTPLATE"));
+        return m == null ? Material.CHAINMAIL_CHESTPLATE : m;
     }
 
     private String defaultSkin() {
@@ -198,9 +202,12 @@ public final class BackpackModule extends AbstractModule {
         Skin s = skins.getOrDefault(skinId, skins.get(defaultSkin()));
         ItemStack it = new ItemStack(s.base());
         ItemMeta m = it.getItemMeta();
-        m.lore(List.of(item("<gray>Right-click to open"), item("<dark_gray>Keeps its contents when dropped"),
+        m.lore(List.of(item("<gray>Wear as a chestplate; sneak + right-click while worn to open"),
+                item("<dark_gray>Keeps its contents when dropped"),
                 item("<dark_gray>Combine with a dye to change its look")));
         m.setMaxStackSize(1);
+        // a backpack is storage, not armour: wipe the vanilla chestplate armour bonus
+        m.setAttributeModifiers(com.google.common.collect.HashMultimap.create());
         m.getPersistentDataContainer().set(markerKey, PersistentDataType.BYTE, (byte) 1);
         it.setItemMeta(m);
         applySkin(it, s);
@@ -231,22 +238,18 @@ public final class BackpackModule extends AbstractModule {
 
     // --------------------------------------------------------- worn on back
 
-    private ItemStack findWorn(Player p) {
-        PlayerInventory pi = p.getInventory();
-        int held = pi.getHeldItemSlot();
-        for (int i = 0; i < 36; i++) {
-            if (i == held) continue;
-            ItemStack it = pi.getItem(i);
-            if (isBackpack(it)) return it;
-        }
-        return null;
+    /** The backpack the player is actually wearing (chest slot), or null. */
+    private ItemStack chestPack(Player p) {
+        ItemStack chest = p.getInventory().getChestplate();
+        return isBackpack(chest) ? chest : null;
     }
 
     private void updateWorn() {
         boolean show = plugin.getConfig().getBoolean("backpack.show-on-back", true);
+        boolean hideSelf = plugin.getConfig().getBoolean("backpack.hide-from-self", true);
         for (Player p : Bukkit.getOnlinePlayers()) {
             UUID id = p.getUniqueId();
-            ItemStack bp = show ? findWorn(p) : null;
+            ItemStack bp = show ? chestPack(p) : null;
             boolean visible = bp != null && !p.isDead() && !p.isInvisible()
                     && p.getGameMode() != GameMode.SPECTATOR && plugin.worldAllowed(p.getWorld())
                     && !(p.getOpenInventory().getTopInventory().getHolder() instanceof Holder);
@@ -272,13 +275,13 @@ public final class BackpackModule extends AbstractModule {
             }
             d.setRotation(updateBodyYaw(p), 0f);
 
-            // Hide the pack from its own wearer while they look steeply down, so it doesn't fill their screen.
-            // Other players still see it.
-            double limit = plugin.getConfig().getDouble("backpack.hide-when-looking-down", 0.0);
-            boolean hideSelf = limit > 0 && p.getLocation().getPitch() > limit;
-            if (hideSelf && !p.canSee(d)) { /* already hidden */ }
-            else if (hideSelf) p.hideEntity(plugin, d);
-            else if (!p.canSee(d)) p.showEntity(plugin, d);
+            // Looking down in first person would put the pack across the screen, so keep it invisible
+            // to the wearer entirely (that includes F5's third person). Other players still see it.
+            if (hideSelf) {
+                if (p.canSee(d)) p.hideEntity(plugin, d);
+            } else if (!p.canSee(d)) {
+                p.showEntity(plugin, d);
+            }
         }
     }
 
@@ -342,6 +345,7 @@ public final class BackpackModule extends AbstractModule {
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
         removeWorn(e.getPlayer().getUniqueId());
+        openCooldown.remove(e.getPlayer().getUniqueId());
     }
 
     @EventHandler
@@ -360,15 +364,38 @@ public final class BackpackModule extends AbstractModule {
     public void onUse(PlayerInteractEvent e) {
         if (e.getHand() != EquipmentSlot.HAND) return;
         if (e.getAction() != Action.RIGHT_CLICK_AIR && e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
-        ItemStack hand = e.getItem();
-        if (!isBackpack(hand)) return;
         Player p = e.getPlayer();
-        org.bukkit.block.Block clicked = e.getClickedBlock();
-        // chests, doors, crafting tables... still work while a backpack is in hand (sneak to open the pack on them)
-        if (clicked != null && !p.isSneaking() && clicked.getType().isInteractable()) return;
-        e.setCancelled(true);
+        ItemStack hand = e.getItem();
+        ItemStack wornPack = chestPack(p);
+
+        if (wornPack != null && p.isSneaking() && (hand == null || hand.getType().isAir())) {
+            // worn pack: sneak + right-click (empty hand) opens it. Aiming at a water source leaves
+            // the click to SurvivalModule (sneak + right-click on water = drink).
+            if (aimingAtWater(p)) return;
+            e.setCancelled(true);
+            tryOpen(p, wornPack);
+            return;
+        }
+        if (isBackpack(hand)) {
+            org.bukkit.block.Block clicked = e.getClickedBlock();
+            // chests, doors, crafting tables... still work while a backpack is in hand (sneak to open the pack)
+            if (clicked != null && !p.isSneaking() && clicked.getType().isInteractable()) return;
+            e.setCancelled(true);   // also stops vanilla from equipping the chestplate on use
+            tryOpen(p, hand);
+        }
+    }
+
+    private boolean aimingAtWater(Player p) {
+        org.bukkit.util.RayTraceResult r = p.rayTraceBlocks(4.0, org.bukkit.FluidCollisionMode.SOURCE_ONLY);
+        return r != null && r.getHitBlock() != null && r.getHitBlock().getType() == Material.WATER;
+    }
+
+    private void tryOpen(Player p, ItemStack stack) {
         if (!plugin.worldAllowed(p.getWorld()) || viewingBackpack(p)) return;
-        open(p, hand);
+        long now = System.currentTimeMillis();
+        if (openCooldown.getOrDefault(p.getUniqueId(), 0L) > now) return;
+        openCooldown.put(p.getUniqueId(), now + 400L);
+        open(p, stack);
     }
 
     private void open(Player p, ItemStack stack) {
@@ -402,22 +429,33 @@ public final class BackpackModule extends AbstractModule {
         byte[] bytes = ItemStack.serializeItemsAsBytes(contents);
 
         PlayerInventory pi = p.getInventory();
-        for (int i = 0; i < pi.getSize(); i++) {
-            ItemStack it = pi.getItem(i);
-            if (!isBackpack(it)) continue;
-            ItemMeta m = it.getItemMeta();
-            if (!h.id.equals(m.getPersistentDataContainer().get(idKey, PersistentDataType.STRING))) continue;
-            m.getPersistentDataContainer().set(dataKey, PersistentDataType.BYTE_ARRAY, bytes);
-            ItemStack copy = it.clone();
-            copy.setItemMeta(m);
-            pi.setItem(i, copy);
-            p.playSound(p.getLocation(), Sound.ITEM_ARMOR_EQUIP_LEATHER, 1f, 0.8f);
+        // a worn pack lives in the chest slot; write the contents back there first
+        ItemStack chest = pi.getChestplate();
+        if (isBackpack(chest) && saveContents(p, chest, h.id, bytes)) {
+            pi.setItem(EquipmentSlot.CHEST, chest);
             return;
+        }
+        for (int i = 0; i < 41; i++) {          // 36 storage + 4 armour + 1 offhand
+            ItemStack it = pi.getItem(i);
+            if (isBackpack(it) && saveContents(p, it, h.id, bytes)) {
+                pi.setItem(i, it);
+                return;
+            }
         }
         // The backpack item is gone (e.g. died while it was open): spill the contents instead of losing them.
         for (ItemStack c : contents) {
             if (c != null) p.getWorld().dropItemNaturally(p.getLocation(), c);
         }
+    }
+
+    /** Serializes the closed inventory into the Backpack ItemStack iff it is the one that was open. */
+    private boolean saveContents(Player p, ItemStack it, String id, byte[] bytes) {
+        ItemMeta m = it.getItemMeta();
+        if (!id.equals(m.getPersistentDataContainer().get(idKey, PersistentDataType.STRING))) return false;
+        m.getPersistentDataContainer().set(dataKey, PersistentDataType.BYTE_ARRAY, bytes);
+        it.setItemMeta(m);
+        p.playSound(p.getLocation(), Sound.ITEM_ARMOR_EQUIP_LEATHER, 1f, 0.8f);
+        return true;
     }
 
     // --------------------------------------------------------------- skins

@@ -1,0 +1,76 @@
+# Homestead (Paper plugin)
+
+Cozy "Vanilla+" survival inspired by the Homestead modpack, as a server-side plugin.
+Pairs with your **Realism** plugin and the **Realism + Farmer's Delight resource pack**.
+
+Requires Paper **1.21.1+** and Java 21. Custom items use `custom_model_data`; the resource pack needs the generated overrides (see below).
+
+## Modules (toggle in config.yml → `modules`)
+| Module | What it does |
+|---|---|
+| survival | 4 seasons, effective temperature (cold overlay, warm near fires / in leather / after hot meals), thirst bar, drink from water (sneak + right-click, empty hand) |
+| farming | crops grow faster in spring, slower in winter; light ≥ 12 nearby = heated greenhouse |
+| cooking | cauldron on a lit campfire = cooking pot. Add ingredients, stir with a stick, serve with a bowl. Meals use Farmer's Delight models from the pack |
+| quests | chains in `quests.yml` (BREAK, HARVEST, KILL, CRAFT, COOK, EAT, DRINK, DECOR), item/command/xp rewards, `/quests` |
+| decor | 5 chairs, stool, tatami mat, rug, 4 cabinets, pot, stove, baskets, rice bale, cutting board (ItemDisplay + Interaction). Right-click the top of a block to place, right-click to sit (clicking the block the furniture stands on also works), sneak + right-click to pick up. Breaking the support block drops it back |
+| backpack | craft with 7 leather + string + chest (`LSL/LCL/LLL`). Right-click to open; contents live inside the item. Shown as a 3D model on your back while it's in your inventory. 5 skins (classic, explorer, shadow, camper, forest): craft backpack + dye (brown, red, black, orange, green) to re-skin, contents are kept |
+| artifacts | Golden Leaf: rare drop from leaves (3x more in autumn). Hold it for Speed + Luck |
+| wine | cook a must, put the bottles in a barrel, wait - they turn into wine inside the barrel. Drinking gives Nausea (stacks if you drink fast) |
+| crafting | crafting-table recipes for every furniture piece + the Golden Leaf; add your own in `crafting.recipes` |
+
+## Crafting
+Every furniture item and the Golden Leaf are craftable out of the box (e.g. chair = 2 planks over 2 sticks, cabinet = planks around a chest). Defaults are built from `decor.items`; disable with `crafting.auto-decor: false` or override any recipe in config:
+```yaml
+crafting:
+  recipes:
+    oak_chair:                  # key = furniture id, "result" optional
+      shape: ["WW", "SS"]
+      ingredients: { W: OAK_PLANKS, S: STICK }
+    my_extra:
+      shapeless: [DIAMOND, ECHO_SHARD]
+      result: "backpack:forest"  # decor:<id> | backpack | backpack:<skin> | golden_leaf
+```
+Meals stay cooked in the pot - they are intentionally not crafting-table recipes.
+
+## Wine
+1. Cook a must in the pot: berry (6 sweet berries + sugar), apple (4 apples + sugar) or glow (6 glow berries + sugar). Serve with glass bottles.
+2. **Open a barrel and put the must bottles inside** - no special right-click needed, the barrel stays fully vanilla.
+3. The timer starts the moment the bottles go in; opening a barrel shows the remaining time on the action bar. After `wine.ferment-ticks` (default 10 min of server time) the bottles turn into wine **right inside the barrel** - just pick them up. Take bottles out or leave them; closing the barrel saves the state.
+
+## HUD
+Icon style uses the `homestead:hud` font from the resource pack: a wide thirst bar (21 levels) sits pixel-locked **above the hunger bar**, and the temperature bar + season icon sit in the **top-right corner**. `/quests` and `/homestead recipes` now open proper inventory menus.
+Nudge positions in config (then regenerate the pack, see below):
+- `hud.thirst-left` / `hud.temp-right` - horizontal pixel anchors from screen centre
+- `hud.thirst-ascent` / `hud.temp-ascent` - vertical offsets
+`hud.style: text` for a plain text bar, `hud.labels: true` to add words next to the icons.
+
+## Commands
+- `/quests [all]` (opens the quest menu; `all` keeps the chat list)
+- `/homestead season | recipes` (recipes opens the recipe book menu)
+- `/homestead give <player> <furniture_id|backpack|golden_leaf> [amount]` (homestead.admin)
+- `/homestead reload` (homestead.admin)
+
+## Build
+```
+mvn clean package
+```
+Jar: `target/Homestead.jar` → drop in `plugins/`. Keep the Realism plugin too (soft-depend).
+
+## Resource pack
+Use **Realism-ResourcePack-Homestead-v6.zip** (your pack + new HUD glyph bars + 64px backpack skins + wine, must and Golden Leaf art + model overrides). `pack.mcmeta` covers 1.20.1 → latest (`pack_format: 15` + `supported_formats` up to 99999) so ViaVersion clients of any version accept it.
+If you change `cmd`/`model`/HUD values in config.yml, regenerate:
+```
+pip install pyyaml pillow
+python tools/gen_pack.py src/main/resources/config.yml <unzipped pack folder>
+python tools/make_assets.py <unzipped pack folder> src/main/resources/config.yml   # HUD glyphs + backpack art
+```
+Then re-zip the pack (pack.mcmeta must be at the zip root) and update the SHA-1 in server.properties.
+
+## Backpack on your back
+The worn model is an ItemDisplay riding the player. If it floats, sinks or sits in front of you, change `backpack.back.y` / `z` / `scale` in config.yml and run `/homestead reload`.
+Set `backpack.show-on-back: false` to turn the worn model off.
+
+## Tuning notes
+- Sitting height differs per model: adjust `seat-height` per furniture in config. If a model renders too low/high, use its `display-y`.
+- Furniture is not protected by land-claim plugins; placement doesn't fire BlockPlaceEvent.
+- Cooking pot contents live in memory (dropped on reload/shutdown).

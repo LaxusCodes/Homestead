@@ -1,0 +1,14 @@
+{
+  "model": {
+    "type": "minecraft:condition",
+    "property": "farmersdelight:skillet/is_cooking",
+    "on_true": {
+      "type": "farmersdelight:skillet_flip",
+      "model": "farmersdelight:item/skillet_cooking"
+    },
+    "on_false": {
+      "type": "minecraft:model",
+      "model": "farmersdelight:item/skillet"
+    }
+  }
+}

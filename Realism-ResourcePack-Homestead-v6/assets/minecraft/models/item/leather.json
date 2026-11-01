@@ -1,0 +1,38 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "minecraft:item/leather"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "custom_model_data": 4001
+      },
+      "model": "homestead:item/backpack_classic"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 4003
+      },
+      "model": "homestead:item/backpack_explorer"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 4004
+      },
+      "model": "homestead:item/backpack_shadow"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 4005
+      },
+      "model": "homestead:item/backpack_camper"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 4006
+      },
+      "model": "homestead:item/backpack_forest"
+    }
+  ]
+}

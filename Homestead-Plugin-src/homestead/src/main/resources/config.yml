@@ -1,0 +1,520 @@
+# Homestead - cozy survival for Paper 1.21.1+
+# Needs the Realism / Farmer's Delight resource pack for custom food and furniture models.
+
+# Leave empty to enable in all worlds, or list world names.
+enabled-worlds: []
+
+# Turn whole features on/off (applied on /homestead reload)
+crafting:
+  # Every furniture piece and the Golden Leaf are craftable out of the box.
+  # Override any of them (or add extra recipes) here; key = recipe name, and add
+  # "result" to target something else: decor:<id>, backpack, backpack:<skin>, golden_leaf.
+  auto-decor: true    # auto-register the default furniture/golden leaf recipes
+  recipes:
+    oak_chair:
+      shape: ["WW", "SS"]
+      ingredients: { W: OAK_PLANKS, S: STICK }
+
+modules:
+  survival: true   # seasons, temperature, thirst
+  farming: true    # seasonal crop growth
+  cooking: true    # cooking pot (cauldron on lit campfire)
+  quests: true     # quest chains from quests.yml
+  decor: true      # chairs, rugs, mats, cabinets
+  wine: true       # barrel fermentation + wine
+  backpack: true   # portable storage
+  artifacts: true  # Golden Leaf relic
+  crafting: true   # crafting-table recipes for furniture and items
+
+hud:
+  enabled: true    # action bar: thirst, season, temperature
+  style: icons     # icons (needs the resource pack) or text
+  labels: false    # also show the season/temperature words next to the icons
+  # Pixel anchors for the icon HUD (regenerate the pack after changing these:
+  #   python tools/make_assets.py <pack-folder> src/main/resources/config.yml)
+  thirst-left: 3   # px from screen centre to the left edge of the thirst bar (sits above hunger)
+  temp-right: 150  # px from screen centre to the right edge of the temperature bar (right corner)
+
+seasons:
+  days-per-season: 7   # in-game days (a day = 20 real minutes). Day 0 = start of Spring
+
+thirst:
+  enabled: true
+  drain-per-minute: 1.2     # out of 20. Sprinting x2.5, hot biomes x2
+  water-bottle: 6.0
+  water-source: 2.0         # sneak + right-click on water with an empty hand
+  dirty-water-chance: 0.25  # chance to get Hunger from drinking straight from water
+
+temperature:
+  enabled: true
+  cold-below: 0.1     # effective temperature. Plains = 0.8, taiga = 0.25, desert = 2.0
+  hot-above: 1.2
+  night-drop: 0.25
+  freeze-ticks: 100   # strength of the frost overlay (no damage). Skipped near fire, in leather, or after hot meals
+
+farming:
+  greenhouse-light: 12   # block light level that counts as a heated greenhouse (ignores winter slowdown)
+  seasons:               # <1.0 = chance growth is allowed, >1.0 = chance of a bonus stage
+    spring: 1.4
+    summer: 1.0
+    autumn: 1.0
+    winter: 0.25
+
+cooking:
+  # cmd = custom model data number, model = model path shown (both used by tools/gen_pack.py).
+  # base = vanilla food it behaves like. effects = "effect:seconds:amplifier".
+  # thirst = restored thirst. warmth = seconds immune to cold. container defaults to BOWL.
+  # servings = how many portions one pot makes. Pot: cauldron on a lit campfire, stir with a stick.
+  recipes:
+    vegetable_soup:
+      name: "<green>Vegetable Soup"
+      model: "farmersdelight:item/vegetable_soup"
+      cmd: 1001
+      base: MUSHROOM_STEW
+      ingredients: { CARROT: 1, POTATO: 1, BEETROOT: 1 }
+      time: 10
+      servings: 3
+      effects: ["regeneration:5:0"]
+      thirst: 4
+      warmth: 180
+    pumpkin_soup:
+      name: "<gold>Pumpkin Soup"
+      model: "farmersdelight:item/pumpkin_soup"
+      cmd: 1002
+      base: MUSHROOM_STEW
+      ingredients: { PUMPKIN: 1, CARROT: 1 }
+      time: 10
+      servings: 3
+      effects: ["resistance:20:0"]
+      thirst: 3
+      warmth: 180
+    chicken_soup:
+      name: "<yellow>Chicken Soup"
+      model: "farmersdelight:item/chicken_soup"
+      cmd: 1003
+      base: MUSHROOM_STEW
+      ingredients: { CHICKEN: 1, CARROT: 1, POTATO: 1 }
+      time: 14
+      servings: 3
+      effects: ["regeneration:10:0", "absorption:60:0"]
+      thirst: 4
+      warmth: 240
+    fried_egg:
+      name: "<yellow>Fried Eggs"
+      model: "farmersdelight:item/fried_egg"
+      cmd: 1004
+      base: BAKED_POTATO
+      ingredients: { EGG: 2 }
+      time: 6
+      servings: 2
+      effects: ["speed:30:0"]
+    bacon_and_eggs:
+      name: "<gold>Bacon and Eggs"
+      model: "farmersdelight:item/bacon_and_eggs"
+      cmd: 1005
+      base: COOKED_PORKCHOP
+      ingredients: { PORKCHOP: 1, EGG: 2 }
+      time: 12
+      servings: 2
+      effects: ["saturation:5:0", "strength:60:0"]
+    apple_cider:
+      name: "<red>Apple Cider"
+      model: "farmersdelight:item/apple_cider"
+      cmd: 1006
+      base: HONEY_BOTTLE
+      container: GLASS_BOTTLE
+      ingredients: { APPLE: 2, SUGAR: 1 }
+      time: 8
+      servings: 2
+      effects: ["speed:60:0"]
+      thirst: 6
+    hot_cocoa:
+      name: "<dark_red>Hot Cocoa"
+      model: "farmersdelight:item/hot_cocoa"
+      cmd: 1007
+      base: HONEY_BOTTLE
+      container: GLASS_BOTTLE
+      ingredients: { COCOA_BEANS: 3, SUGAR: 1 }
+      time: 8
+      servings: 2
+      thirst: 4
+      warmth: 300
+    sweet_berry_cookie:
+      name: "<light_purple>Sweet Berry Cookies"
+      model: "farmersdelight:item/sweet_berry_cookie"
+      cmd: 1008
+      base: COOKIE
+      container: PAPER
+      ingredients: { SWEET_BERRIES: 2, WHEAT: 2 }
+      time: 8
+      servings: 4
+      effects: ["haste:30:0"]
+    fruit_salad:
+      name: "<light_purple>Fruit Salad"
+      model: "farmersdelight:item/fruit_salad"
+      cmd: 1009
+      base: BEETROOT_SOUP
+      ingredients: { APPLE: 1, SWEET_BERRIES: 2, MELON_SLICE: 2 }
+      time: 8
+      servings: 3
+      effects: ["speed:40:0"]
+      thirst: 3
+    beef_stew:
+      name: "<dark_red>Beef Stew"
+      model: "farmersdelight:item/beef_stew"
+      cmd: 1010
+      base: RABBIT_STEW
+      ingredients: { BEEF: 1, CARROT: 1, POTATO: 1 }
+      time: 14
+      servings: 3
+      effects: ["regeneration:8:0", "resistance:30:0"]
+      thirst: 3
+      warmth: 240
+    steak_and_potatoes:
+      name: "<gold>Steak and Potatoes"
+      model: "farmersdelight:item/steak_and_potatoes"
+      cmd: 1011
+      base: COOKED_BEEF
+      ingredients: { BEEF: 1, POTATO: 2 }
+      time: 12
+      servings: 2
+      effects: ["saturation:6:0", "strength:45:0"]
+    honey_cookie:
+      name: "<yellow>Honey Cookies"
+      model: "farmersdelight:item/honey_cookie"
+      cmd: 1012
+      base: COOKIE
+      container: PAPER
+      ingredients: { HONEY_BOTTLE: 1, WHEAT: 2 }
+      time: 8
+      servings: 4
+      effects: ["regeneration:6:0"]
+    fish_stew:
+      name: "<aqua>Fish Stew"
+      model: "farmersdelight:item/fish_stew"
+      cmd: 1013
+      base: MUSHROOM_STEW
+      ingredients: { COD: 1, CARROT: 1 }
+      time: 12
+      servings: 3
+      effects: ["water_breathing:90:0", "regeneration:5:0"]
+      thirst: 3
+      warmth: 180
+    hamburger:
+      name: "<gold>Hamburger"
+      model: "farmersdelight:item/hamburger"
+      cmd: 1014
+      base: BREAD
+      container: PAPER
+      ingredients: { BEEF: 1, BREAD: 1 }
+      time: 10
+      servings: 2
+      effects: ["strength:30:0"]
+    berry_must:
+      name: "<light_purple>Berry Must"
+      model: "homestead:item/must_berry"
+      cmd: 3001
+      base: HONEY_BOTTLE
+      container: GLASS_BOTTLE
+      ingredients: { SWEET_BERRIES: 6, SUGAR: 1 }
+      time: 8
+      servings: 3
+      thirst: 1
+    apple_must:
+      name: "<yellow>Apple Must"
+      model: "homestead:item/must_apple"
+      cmd: 3002
+      base: HONEY_BOTTLE
+      container: GLASS_BOTTLE
+      ingredients: { APPLE: 4, SUGAR: 1 }
+      time: 8
+      servings: 3
+      thirst: 1
+    glow_must:
+      name: "<gold>Glow Berry Must"
+      model: "homestead:item/must_glow"
+      cmd: 3003
+      base: HONEY_BOTTLE
+      container: GLASS_BOTTLE
+      ingredients: { GLOW_BERRIES: 6, SUGAR: 1 }
+      time: 8
+      servings: 3
+      thirst: 1
+
+wine:
+  # 1) cook a must in the pot  2) open a barrel and put must bottles inside  3) wait
+  # The timer starts when the bottles are placed in and shows on the action bar every time the barrel is opened.
+  # When time is up, the bottles turn into wine right inside the barrel. No special right-click storing.
+  ferment-ticks: 12000    # 20 ticks = 1 second. 12000 = 10 minutes (server running time)
+  types:
+    berry_wine:
+      from: berry_must
+      name: "<dark_purple>Sweet Berry Wine"
+      model: "homestead:item/wine_berry"
+      cmd: 3101
+      base: HONEY_BOTTLE
+      nausea: 12          # seconds of Nausea; stacks if you keep drinking
+      warmth: 240
+      effects: ["resistance:30:0"]
+    apple_wine:
+      from: apple_must
+      name: "<yellow>Golden Apple Wine"
+      model: "homestead:item/wine_apple"
+      cmd: 3102
+      base: HONEY_BOTTLE
+      nausea: 10
+      warmth: 240
+      effects: ["speed:30:0"]
+    glow_wine:
+      from: glow_must
+      name: "<gold>Glow Berry Wine"
+      model: "homestead:item/wine_glow"
+      cmd: 3103
+      base: HONEY_BOTTLE
+      nausea: 15
+      warmth: 300
+      effects: ["night_vision:60:0"]
+
+decor:
+  # base item is PAPER so furniture can't be placed as a block or eaten.
+  # cmd = custom model data number, model = model shown (used by tools/gen_pack.py).
+  # scale = display size. width/height = click hitbox (spawned at the vertical center of the model).
+  # seat-height = rider offset (tune if sitting looks off). display-y = small manual nudge of the model.
+  items:
+    oak_chair:
+      name: "<gold>Oak Chair"
+      material: PAPER
+      cmd: 2001
+      model: "minecraft:block/oak_stairs"
+      seat: true
+      scale: 0.8
+      width: 0.7
+      height: 0.8
+      seat-height: 0.2
+    spruce_chair:
+      name: "<dark_gray>Spruce Chair"
+      material: PAPER
+      cmd: 2002
+      model: "minecraft:block/spruce_stairs"
+      seat: true
+      scale: 0.8
+      width: 0.7
+      height: 0.8
+      seat-height: 0.2
+    birch_chair:
+      name: "<white>Birch Chair"
+      material: PAPER
+      cmd: 2006
+      model: "minecraft:block/birch_stairs"
+      seat: true
+      scale: 0.8
+      width: 0.7
+      height: 0.8
+      seat-height: 0.2
+    dark_oak_chair:
+      name: "<dark_gray>Dark Oak Chair"
+      material: PAPER
+      cmd: 2007
+      model: "minecraft:block/dark_oak_stairs"
+      seat: true
+      scale: 0.8
+      width: 0.7
+      height: 0.8
+      seat-height: 0.2
+    cherry_chair:
+      name: "<light_purple>Cherry Chair"
+      material: PAPER
+      cmd: 2008
+      model: "minecraft:block/cherry_stairs"
+      seat: true
+      scale: 0.8
+      width: 0.7
+      height: 0.8
+      seat-height: 0.2
+    straw_stool:
+      name: "<yellow>Straw Stool"
+      material: PAPER
+      cmd: 2003
+      model: "farmersdelight:block/straw_bale"
+      seat: true
+      scale: 0.5
+      width: 0.5
+      height: 0.5
+      seat-height: 0.0
+    tatami_mat:
+      name: "<green>Tatami Mat"
+      material: PAPER
+      cmd: 2004
+      model: "farmersdelight:block/tatami_even"
+      seat: true
+      scale: 1.0
+      width: 1.0
+      height: 0.15
+      seat-height: -0.3
+    canvas_rug:
+      name: "<white>Canvas Rug"
+      material: PAPER
+      cmd: 2005
+      model: "farmersdelight:block/canvas_rug"
+      seat: false
+      scale: 1.0
+      width: 1.0
+      height: 0.1
+      seat-height: 0.0
+    oak_cabinet:
+      name: "<gold>Oak Cabinet"
+      material: PAPER
+      cmd: 2009
+      model: "farmersdelight:block/oak_cabinet"
+      seat: false
+      scale: 1.0
+      width: 1.0
+      height: 1.0
+      seat-height: 0.0
+    spruce_cabinet:
+      name: "<dark_gray>Spruce Cabinet"
+      material: PAPER
+      cmd: 2010
+      model: "farmersdelight:block/spruce_cabinet"
+      seat: false
+      scale: 1.0
+      width: 1.0
+      height: 1.0
+      seat-height: 0.0
+    birch_cabinet:
+      name: "<white>Birch Cabinet"
+      material: PAPER
+      cmd: 2011
+      model: "farmersdelight:block/birch_cabinet"
+      seat: false
+      scale: 1.0
+      width: 1.0
+      height: 1.0
+      seat-height: 0.0
+    dark_oak_cabinet:
+      name: "<dark_gray>Dark Oak Cabinet"
+      material: PAPER
+      cmd: 2012
+      model: "farmersdelight:block/dark_oak_cabinet"
+      seat: false
+      scale: 1.0
+      width: 1.0
+      height: 1.0
+      seat-height: 0.0
+    cooking_pot:
+      name: "<gray>Cooking Pot"
+      material: PAPER
+      cmd: 2013
+      model: "farmersdelight:block/cooking_pot"
+      seat: false
+      scale: 1.0
+      width: 0.9
+      height: 0.7
+      seat-height: 0.0
+    stove:
+      name: "<gray>Stove"
+      material: PAPER
+      cmd: 2014
+      model: "farmersdelight:block/stove"
+      seat: false
+      scale: 1.0
+      width: 1.0
+      height: 1.0
+      seat-height: 0.0
+    rice_bale:
+      name: "<white>Rice Bale"
+      material: PAPER
+      cmd: 2015
+      model: "farmersdelight:block/rice_bale"
+      seat: false
+      scale: 1.0
+      width: 1.0
+      height: 1.0
+      seat-height: 0.0
+    wooden_basket:
+      name: "<gold>Wooden Basket"
+      material: PAPER
+      cmd: 2016
+      model: "farmersdelight:block/wooden_basket"
+      seat: false
+      scale: 1.0
+      width: 0.9
+      height: 0.8
+      seat-height: 0.0
+    bamboo_basket:
+      name: "<green>Bamboo Basket"
+      material: PAPER
+      cmd: 2017
+      model: "farmersdelight:block/bamboo_basket"
+      seat: false
+      scale: 1.0
+      width: 0.9
+      height: 0.8
+      seat-height: 0.0
+    cutting_board:
+      name: "<gold>Cutting Board"
+      material: PAPER
+      cmd: 2018
+      model: "farmersdelight:block/cutting_board"
+      seat: false
+      scale: 1.0
+      width: 0.8
+      height: 0.1
+      seat-height: 0.0
+
+backpack:
+  # Recipe: leather x7 + string + chest (shape LSL / LCL / LLL).
+  # Re-skin: put a backpack + a dye in the crafting grid (contents are kept).
+  # While a backpack is in your inventory (not in your hands) it is shown on your back.
+  rows: 3
+  base: LEATHER
+  default-skin: classic
+  show-on-back: true
+  back:             # tune if the worn backpack floats or sinks into the player
+    scale: 1.0
+    x: 0.0
+    y: -0.65        # up/down (negative = lower)
+    z: 0.27         # distance behind the body (negative = in front)
+  skin-dyes:
+    BROWN_DYE: classic
+    RED_DYE: explorer
+    BLACK_DYE: shadow
+    ORANGE_DYE: camper
+    GREEN_DYE: forest
+  skins:
+    classic:
+      name: "<gold>Backpack"
+      base: LEATHER
+      cmd: 4001
+      model: "homestead:item/backpack_classic"
+    explorer:
+      name: "<red>Explorer Backpack"
+      base: LEATHER
+      cmd: 4003
+      model: "homestead:item/backpack_explorer"
+    shadow:
+      name: "<dark_gray>Shadow Backpack"
+      base: LEATHER
+      cmd: 4004
+      model: "homestead:item/backpack_shadow"
+    camper:
+      name: "<gold>Camper Backpack"
+      base: LEATHER
+      cmd: 4005
+      model: "homestead:item/backpack_camper"
+    forest:
+      name: "<green>Forest Backpack"
+      base: LEATHER
+      cmd: 4006
+      model: "homestead:item/backpack_forest"
+
+artifacts:
+  golden-leaf:
+    # Rare drop from breaking leaves. Hold it (either hand) for the effects below.
+    chance: 0.004             # per leaf block broken
+    autumn-multiplier: 3.0    # chance is multiplied in autumn
+    name: "<gold>Golden Leaf"
+    base: GOLD_NUGGET
+    cmd: 4002
+    model: "homestead:item/golden_leaf"
+    effects: ["speed:6:0", "luck:6:0"]

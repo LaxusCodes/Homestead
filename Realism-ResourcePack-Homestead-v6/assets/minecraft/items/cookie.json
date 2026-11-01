@@ -1,0 +1,26 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "minecraft:item/cookie"
+    },
+    "entries": [
+      {
+        "threshold": 1008,
+        "model": {
+          "type": "minecraft:model",
+          "model": "farmersdelight:item/sweet_berry_cookie"
+        }
+      },
+      {
+        "threshold": 1012,
+        "model": {
+          "type": "minecraft:model",
+          "model": "farmersdelight:item/honey_cookie"
+        }
+      }
+    ]
+  }
+}

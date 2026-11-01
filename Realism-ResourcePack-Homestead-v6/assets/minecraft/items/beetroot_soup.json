@@ -1,0 +1,19 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "minecraft:item/beetroot_soup"
+    },
+    "entries": [
+      {
+        "threshold": 1009,
+        "model": {
+          "type": "minecraft:model",
+          "model": "farmersdelight:item/fruit_salad"
+        }
+      }
+    ]
+  }
+}

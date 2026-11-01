@@ -1,0 +1,165 @@
+# type: BREAK | HARVEST | KILL | CRAFT | COOK | EAT | DRINK | DECOR
+# target: "*" for anything, an exact name (WHEAT, ZOMBIE, vegetable_soup, oak_chair), or a suffix like LOG (matches OAK_LOG)
+# requires: quest ids that must be finished first
+# rewards: items ("MATERIAL:amount" or "meal:recipe_id:amount"), commands ({player}), xp
+quests:
+  first_harvest:
+    name: "First Harvest"
+    description: "Harvest 10 fully grown wheat."
+    type: HARVEST
+    target: WHEAT
+    amount: 10
+    rewards:
+      items: ["BREAD:4", "WHEAT_SEEDS:8"]
+      xp: 20
+
+  chop_wood:
+    name: "Timber!"
+    description: "Chop 20 logs."
+    type: BREAK
+    target: LOG
+    amount: 20
+    rewards:
+      items: ["IRON_AXE:1"]
+      xp: 20
+
+  stock_the_pantry:
+    name: "Stock the Pantry"
+    description: "Harvest 8 fully grown carrots."
+    type: HARVEST
+    target: CARROTS
+    amount: 8
+    requires: [first_harvest]
+    rewards:
+      items: ["POTATO:6", "BEETROOT_SEEDS:6"]
+      xp: 25
+
+  build_a_fire:
+    name: "A Warm Fire"
+    description: "Craft a campfire."
+    type: CRAFT
+    target: CAMPFIRE
+    amount: 1
+    requires: [chop_wood]
+    rewards:
+      items: ["COAL:8"]
+      xp: 15
+
+  first_pot:
+    name: "Something to Stir"
+    description: "Craft a cauldron. Place it on a lit campfire."
+    type: CRAFT
+    target: CAULDRON
+    amount: 1
+    requires: [build_a_fire]
+    rewards:
+      items: ["BOWL:6", "STICK:2"]
+      xp: 25
+
+  first_meal:
+    name: "Home Cooking"
+    description: "Cook and serve a vegetable soup."
+    type: COOK
+    target: vegetable_soup
+    amount: 1
+    requires: [first_pot, stock_the_pantry]
+    rewards:
+      items: ["meal:chicken_soup:2"]
+      xp: 40
+
+  hearty_eater:
+    name: "Hearty Eater"
+    description: "Eat 5 home-cooked meals."
+    type: EAT
+    target: "*"
+    amount: 5
+    requires: [first_meal]
+    rewards:
+      items: ["GOLDEN_CARROT:4"]
+      xp: 40
+
+  stay_hydrated:
+    name: "Stay Hydrated"
+    description: "Drink water 10 times (bottles, or sneak + right-click on water)."
+    type: DRINK
+    target: WATER
+    amount: 10
+    rewards:
+      items: ["GLASS_BOTTLE:6"]
+      xp: 15
+
+  make_it_cozy:
+    name: "Make it Cozy"
+    description: "Place 3 pieces of furniture."
+    type: DECOR
+    target: "*"
+    amount: 3
+    requires: [chop_wood]
+    rewards:
+      commands: ["homestead give {player} straw_stool 2", "homestead give {player} canvas_rug 1"]
+      xp: 30
+
+  pest_control:
+    name: "Pest Control"
+    description: "Defeat 10 zombies bothering the farm."
+    type: KILL
+    target: ZOMBIE
+    amount: 10
+    requires: [first_harvest]
+    rewards:
+      items: ["IRON_SWORD:1", "SHIELD:1"]
+      xp: 40
+
+  vintner:
+    name: "Vintner's Apprentice"
+    description: "Cook a berry must (sweet berries + sugar) in the pot."
+    type: COOK
+    target: berry_must
+    amount: 1
+    requires: [first_meal]
+    rewards:
+      items: ["BARREL:1", "GLASS_BOTTLE:8"]
+      xp: 30
+
+  first_vintage:
+    name: "First Vintage"
+    description: "Ferment a barrel of berry must and collect 3 bottles of wine."
+    type: BREW
+    target: berry_wine
+    amount: 3
+    requires: [vintner]
+    rewards:
+      items: ["meal:berry_must:3"]
+      xp: 60
+
+  fine_taste:
+    name: "A Taste for Wine"
+    description: "Drink wine twice. Don't drink too fast!"
+    type: DRINK
+    target: WINE
+    amount: 2
+    requires: [first_vintage]
+    rewards:
+      items: ["EMERALD:3"]
+      xp: 30
+
+  pack_rat:
+    name: "Pack Rat"
+    description: "Craft a backpack (7 leather, 1 string, 1 chest)."
+    type: CRAFT
+    target: backpack
+    amount: 1
+    requires: [chop_wood]
+    rewards:
+      items: ["LEATHER:4", "STRING:4"]
+      xp: 25
+
+  golden_find:
+    name: "A Glint in the Leaves"
+    description: "Find a Golden Leaf. Break leaves - autumn is luckiest."
+    type: FIND
+    target: golden_leaf
+    amount: 1
+    rewards:
+      items: ["EMERALD:5"]
+      xp: 80

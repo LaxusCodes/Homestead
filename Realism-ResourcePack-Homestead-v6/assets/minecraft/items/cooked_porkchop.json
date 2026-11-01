@@ -1,0 +1,19 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "minecraft:item/cooked_porkchop"
+    },
+    "entries": [
+      {
+        "threshold": 1005,
+        "model": {
+          "type": "minecraft:model",
+          "model": "farmersdelight:item/bacon_and_eggs"
+        }
+      }
+    ]
+  }
+}

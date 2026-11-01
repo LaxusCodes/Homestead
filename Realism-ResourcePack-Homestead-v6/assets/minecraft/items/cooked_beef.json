@@ -1,0 +1,19 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "minecraft:item/cooked_beef"
+    },
+    "entries": [
+      {
+        "threshold": 1011,
+        "model": {
+          "type": "minecraft:model",
+          "model": "farmersdelight:item/steak_and_potatoes"
+        }
+      }
+    ]
+  }
+}

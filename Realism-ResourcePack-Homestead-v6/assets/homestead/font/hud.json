@@ -1,0 +1,50 @@
+{
+  "providers": [
+    {
+      "type": "bitmap",
+      "file": "homestead:font/hud_thirst.png",
+      "ascent": 22,
+      "height": 9,
+      "chars": [
+        "\ue000\ue001\ue002\ue003\ue004\ue005\ue006\ue007\ue008\ue009\ue00a",
+        "\ue00b\ue00c\ue00d\ue00e\ue00f\ue010\ue011\ue012\ue013\ue014"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "homestead:font/hud_temp.png",
+      "ascent": 26,
+      "height": 9,
+      "chars": [
+        "\ue015\ue016\ue017\ue018\ue019"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "homestead:font/hud_season.png",
+      "ascent": 26,
+      "height": 9,
+      "chars": [
+        "\ue01a\ue01b\ue01c\ue01d"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "homestead:font/hud_space9.png",
+      "ascent": 0,
+      "height": 1,
+      "chars": [
+        "\ue020"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "homestead:font/hud_space3.png",
+      "ascent": 0,
+      "height": 1,
+      "chars": [
+        "\ue021"
+      ]
+    }
+  ]
+}

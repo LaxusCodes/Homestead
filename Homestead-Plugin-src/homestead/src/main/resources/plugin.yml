@@ -1,0 +1,24 @@
+name: Homestead
+main: dev.laxus.homestead.HomesteadPlugin
+version: 0.1.0
+api-version: '1.21'
+author: Laxus
+description: Cozy survival - cooking, farming, quests, seasons, thirst and furniture.
+softdepend: [Realism]
+
+commands:
+  homestead:
+    description: Homestead main command
+    usage: /<command> [help|reload|season|setseason|recipes|items|give]
+    aliases: [hs]
+  quests:
+    description: Show your quests
+    usage: /<command> [all]
+
+permissions:
+  homestead.use:
+    description: Use /homestead and /quests
+    default: true
+  homestead.admin:
+    description: Reload, give furniture, remove other players' furniture
+    default: op

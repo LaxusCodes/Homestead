@@ -1,0 +1,56 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "minecraft:item/honey_bottle"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "custom_model_data": 1006
+      },
+      "model": "farmersdelight:item/apple_cider"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 1007
+      },
+      "model": "farmersdelight:item/hot_cocoa"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 3001
+      },
+      "model": "homestead:item/must_berry"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 3002
+      },
+      "model": "homestead:item/must_apple"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 3003
+      },
+      "model": "homestead:item/must_glow"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 3101
+      },
+      "model": "homestead:item/wine_berry"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 3102
+      },
+      "model": "homestead:item/wine_apple"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 3103
+      },
+      "model": "homestead:item/wine_glow"
+    }
+  ]
+}

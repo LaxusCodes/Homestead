@@ -1,0 +1,138 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "minecraft:item/paper"
+    },
+    "entries": [
+      {
+        "threshold": 2001,
+        "model": {
+          "type": "minecraft:model",
+          "model": "minecraft:block/oak_stairs"
+        }
+      },
+      {
+        "threshold": 2002,
+        "model": {
+          "type": "minecraft:model",
+          "model": "minecraft:block/spruce_stairs"
+        }
+      },
+      {
+        "threshold": 2006,
+        "model": {
+          "type": "minecraft:model",
+          "model": "minecraft:block/birch_stairs"
+        }
+      },
+      {
+        "threshold": 2007,
+        "model": {
+          "type": "minecraft:model",
+          "model": "minecraft:block/dark_oak_stairs"
+        }
+      },
+      {
+        "threshold": 2008,
+        "model": {
+          "type": "minecraft:model",
+          "model": "minecraft:block/cherry_stairs"
+        }
+      },
+      {
+        "threshold": 2003,
+        "model": {
+          "type": "minecraft:model",
+          "model": "farmersdelight:block/straw_bale"
+        }
+      },
+      {
+        "threshold": 2004,
+        "model": {
+          "type": "minecraft:model",
+          "model": "farmersdelight:block/tatami_even"
+        }
+      },
+      {
+        "threshold": 2005,
+        "model": {
+          "type": "minecraft:model",
+          "model": "farmersdelight:block/canvas_rug"
+        }
+      },
+      {
+        "threshold": 2009,
+        "model": {
+          "type": "minecraft:model",
+          "model": "farmersdelight:block/oak_cabinet"
+        }
+      },
+      {
+        "threshold": 2010,
+        "model": {
+          "type": "minecraft:model",
+          "model": "farmersdelight:block/spruce_cabinet"
+        }
+      },
+      {
+        "threshold": 2011,
+        "model": {
+          "type": "minecraft:model",
+          "model": "farmersdelight:block/birch_cabinet"
+        }
+      },
+      {
+        "threshold": 2012,
+        "model": {
+          "type": "minecraft:model",
+          "model": "farmersdelight:block/dark_oak_cabinet"
+        }
+      },
+      {
+        "threshold": 2013,
+        "model": {
+          "type": "minecraft:model",
+          "model": "farmersdelight:block/cooking_pot"
+        }
+      },
+      {
+        "threshold": 2014,
+        "model": {
+          "type": "minecraft:model",
+          "model": "farmersdelight:block/stove"
+        }
+      },
+      {
+        "threshold": 2015,
+        "model": {
+          "type": "minecraft:model",
+          "model": "farmersdelight:block/rice_bale"
+        }
+      },
+      {
+        "threshold": 2016,
+        "model": {
+          "type": "minecraft:model",
+          "model": "farmersdelight:block/wooden_basket"
+        }
+      },
+      {
+        "threshold": 2017,
+        "model": {
+          "type": "minecraft:model",
+          "model": "farmersdelight:block/bamboo_basket"
+        }
+      },
+      {
+        "threshold": 2018,
+        "model": {
+          "type": "minecraft:model",
+          "model": "farmersdelight:block/cutting_board"
+        }
+      }
+    ]
+  }
+}

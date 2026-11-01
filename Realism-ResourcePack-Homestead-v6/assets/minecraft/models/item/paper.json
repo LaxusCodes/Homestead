@@ -1,0 +1,116 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "minecraft:item/paper"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "custom_model_data": 2001
+      },
+      "model": "minecraft:block/oak_stairs"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 2002
+      },
+      "model": "minecraft:block/spruce_stairs"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 2006
+      },
+      "model": "minecraft:block/birch_stairs"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 2007
+      },
+      "model": "minecraft:block/dark_oak_stairs"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 2008
+      },
+      "model": "minecraft:block/cherry_stairs"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 2003
+      },
+      "model": "farmersdelight:block/straw_bale"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 2004
+      },
+      "model": "farmersdelight:block/tatami_even"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 2005
+      },
+      "model": "farmersdelight:block/canvas_rug"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 2009
+      },
+      "model": "farmersdelight:block/oak_cabinet"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 2010
+      },
+      "model": "farmersdelight:block/spruce_cabinet"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 2011
+      },
+      "model": "farmersdelight:block/birch_cabinet"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 2012
+      },
+      "model": "farmersdelight:block/dark_oak_cabinet"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 2013
+      },
+      "model": "farmersdelight:block/cooking_pot"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 2014
+      },
+      "model": "farmersdelight:block/stove"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 2015
+      },
+      "model": "farmersdelight:block/rice_bale"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 2016
+      },
+      "model": "farmersdelight:block/wooden_basket"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 2017
+      },
+      "model": "farmersdelight:block/bamboo_basket"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 2018
+      },
+      "model": "farmersdelight:block/cutting_board"
+    }
+  ]
+}

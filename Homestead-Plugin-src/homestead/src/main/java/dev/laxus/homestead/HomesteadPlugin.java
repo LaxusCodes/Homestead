@@ -1,0 +1,125 @@
+package dev.laxus.homestead;
+
+import dev.laxus.homestead.artifacts.ArtifactModule;
+import dev.laxus.homestead.backpack.BackpackModule;
+import dev.laxus.homestead.cooking.CookingModule;
+import dev.laxus.homestead.crafting.CraftingModule;
+import dev.laxus.homestead.decor.DecorModule;
+import dev.laxus.homestead.farming.FarmingModule;
+import dev.laxus.homestead.quests.QuestModule;
+import dev.laxus.homestead.survival.SurvivalModule;
+import dev.laxus.homestead.ui.HomesteadMenus;
+import dev.laxus.homestead.wine.WineModule;
+import org.bukkit.World;
+import org.bukkit.command.PluginCommand;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+
+public final class HomesteadPlugin extends JavaPlugin {
+    private final List<AbstractModule> modules = new ArrayList<>();
+    private SurvivalModule survival;
+    private FarmingModule farming;
+    private CookingModule cooking;
+    private QuestModule quests;
+    private DecorModule decor;
+    private WineModule wine;
+    private BackpackModule backpack;
+    private ArtifactModule artifacts;
+    private CraftingModule crafting;
+    private HomesteadMenus menus;
+
+    @Override
+    public void onEnable() {
+        saveDefaultConfig();
+        if (!new File(getDataFolder(), "quests.yml").exists()) {
+            saveResource("quests.yml", false);
+        }
+        startModules();
+
+        HomesteadCommand cmd = new HomesteadCommand(this);
+        for (String name : List.of("homestead", "quests")) {
+            PluginCommand pc = getCommand(name);
+            if (pc != null) {
+                pc.setExecutor(cmd);
+                pc.setTabCompleter(cmd);
+            }
+        }
+        getLogger().info("Homestead enabled with " + modules.size() + " module(s).");
+    }
+
+    @Override
+    public void onDisable() {
+        stopModules();
+    }
+
+    public void reload() {
+        stopModules();
+        reloadConfig();
+        startModules();
+    }
+
+    private boolean moduleOn(String name) {
+        return getConfig().getBoolean("modules." + name, true);
+    }
+
+    private void startModules() {
+        survival = moduleOn("survival") ? new SurvivalModule(this) : null;
+        farming = moduleOn("farming") ? new FarmingModule(this) : null;
+        cooking = moduleOn("cooking") ? new CookingModule(this) : null;
+        quests = moduleOn("quests") ? new QuestModule(this) : null;
+        decor = moduleOn("decor") ? new DecorModule(this) : null;
+        wine = moduleOn("wine") ? new WineModule(this) : null;
+        backpack = moduleOn("backpack") ? new BackpackModule(this) : null;
+        artifacts = moduleOn("artifacts") ? new ArtifactModule(this) : null;
+        crafting = moduleOn("crafting") ? new CraftingModule(this) : null;
+        menus = new HomesteadMenus(this);   // always on: /quests + /homestead recipes GUIs
+
+        for (AbstractModule m : new AbstractModule[]{survival, farming, cooking, quests, decor, wine,
+                backpack, artifacts, crafting, menus}) {
+            if (m != null) {
+                modules.add(m);
+                m.enable();
+            }
+        }
+    }
+
+    private void stopModules() {
+        for (AbstractModule m : modules) m.disable();
+        modules.clear();
+        survival = null;
+        farming = null;
+        cooking = null;
+        quests = null;
+        decor = null;
+        wine = null;
+        backpack = null;
+        artifacts = null;
+        crafting = null;
+        menus = null;
+    }
+
+    public boolean worldAllowed(World w) {
+        List<String> list = getConfig().getStringList("enabled-worlds");
+        return list.isEmpty() || list.contains(w.getName());
+    }
+
+    /** Report progress to the quest module (no-op if quests are disabled). */
+    public void quest(Player p, String type, String target) {
+        if (quests != null) quests.progress(p, type, target, 1);
+    }
+
+    public SurvivalModule survival() { return survival; }
+    public FarmingModule farming() { return farming; }
+    public CookingModule cooking() { return cooking; }
+    public QuestModule quests() { return quests; }
+    public DecorModule decor() { return decor; }
+    public WineModule wine() { return wine; }
+    public BackpackModule backpack() { return backpack; }
+    public ArtifactModule artifacts() { return artifacts; }
+    public CraftingModule crafting() { return crafting; }
+    public HomesteadMenus menus() { return menus; }
+}

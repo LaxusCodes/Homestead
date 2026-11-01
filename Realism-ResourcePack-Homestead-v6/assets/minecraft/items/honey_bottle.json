@@ -1,0 +1,68 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "minecraft:item/honey_bottle"
+    },
+    "entries": [
+      {
+        "threshold": 1006,
+        "model": {
+          "type": "minecraft:model",
+          "model": "farmersdelight:item/apple_cider"
+        }
+      },
+      {
+        "threshold": 1007,
+        "model": {
+          "type": "minecraft:model",
+          "model": "farmersdelight:item/hot_cocoa"
+        }
+      },
+      {
+        "threshold": 3001,
+        "model": {
+          "type": "minecraft:model",
+          "model": "homestead:item/must_berry"
+        }
+      },
+      {
+        "threshold": 3002,
+        "model": {
+          "type": "minecraft:model",
+          "model": "homestead:item/must_apple"
+        }
+      },
+      {
+        "threshold": 3003,
+        "model": {
+          "type": "minecraft:model",
+          "model": "homestead:item/must_glow"
+        }
+      },
+      {
+        "threshold": 3101,
+        "model": {
+          "type": "minecraft:model",
+          "model": "homestead:item/wine_berry"
+        }
+      },
+      {
+        "threshold": 3102,
+        "model": {
+          "type": "minecraft:model",
+          "model": "homestead:item/wine_apple"
+        }
+      },
+      {
+        "threshold": 3103,
+        "model": {
+          "type": "minecraft:model",
+          "model": "homestead:item/wine_glow"
+        }
+      }
+    ]
+  }
+}

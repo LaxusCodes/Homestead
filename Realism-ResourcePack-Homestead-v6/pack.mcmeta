@@ -1,0 +1,12 @@
+{
+  "pack": {
+    "description": "Realism + Farmer's Delight + Homestead HUD (1.20.1+)",
+    "pack_format": 15,
+    "supported_formats": {
+      "min_inclusive": 15,
+      "max_inclusive": 99999
+    },
+    "min_format": 15,
+    "max_format": 99999
+  }
+}

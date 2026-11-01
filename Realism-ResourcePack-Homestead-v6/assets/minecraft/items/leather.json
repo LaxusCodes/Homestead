@@ -1,0 +1,47 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "minecraft:item/leather"
+    },
+    "entries": [
+      {
+        "threshold": 4001,
+        "model": {
+          "type": "minecraft:model",
+          "model": "homestead:item/backpack_classic"
+        }
+      },
+      {
+        "threshold": 4003,
+        "model": {
+          "type": "minecraft:model",
+          "model": "homestead:item/backpack_explorer"
+        }
+      },
+      {
+        "threshold": 4004,
+        "model": {
+          "type": "minecraft:model",
+          "model": "homestead:item/backpack_shadow"
+        }
+      },
+      {
+        "threshold": 4005,
+        "model": {
+          "type": "minecraft:model",
+          "model": "homestead:item/backpack_camper"
+        }
+      },
+      {
+        "threshold": 4006,
+        "model": {
+          "type": "minecraft:model",
+          "model": "homestead:item/backpack_forest"
+        }
+      }
+    ]
+  }
+}

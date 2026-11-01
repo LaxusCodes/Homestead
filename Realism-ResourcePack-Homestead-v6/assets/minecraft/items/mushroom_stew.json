@@ -1,0 +1,40 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "minecraft:item/mushroom_stew"
+    },
+    "entries": [
+      {
+        "threshold": 1001,
+        "model": {
+          "type": "minecraft:model",
+          "model": "farmersdelight:item/vegetable_soup"
+        }
+      },
+      {
+        "threshold": 1002,
+        "model": {
+          "type": "minecraft:model",
+          "model": "farmersdelight:item/pumpkin_soup"
+        }
+      },
+      {
+        "threshold": 1003,
+        "model": {
+          "type": "minecraft:model",
+          "model": "farmersdelight:item/chicken_soup"
+        }
+      },
+      {
+        "threshold": 1013,
+        "model": {
+          "type": "minecraft:model",
+          "model": "farmersdelight:item/fish_stew"
+        }
+      }
+    ]
+  }
+}

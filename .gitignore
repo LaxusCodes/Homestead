@@ -1,0 +1,27 @@
+# Build output
+target/
+build/
+out/
+*.class
+
+# Packaged artifacts - CI produces these (GitHub Actions build.yml)
+*.jar
+*.zip
+*.tar.gz
+
+# IDE / editor junk
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+.factorypath
+
+# OS junk
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Logs
+*.log

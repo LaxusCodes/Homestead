@@ -1,0 +1,103 @@
+{
+  "ambient.wind_gust": {
+    "sounds": [
+      {
+        "name": "realism:ambient/wind_gust",
+        "volume": 0.7,
+        "stream": true
+      }
+    ]
+  },
+  "ambient.crickets": {
+    "sounds": [
+      {
+        "name": "realism:ambient/crickets",
+        "volume": 0.55,
+        "stream": true
+      }
+    ]
+  },
+  "ambient.owl": {
+    "sounds": [
+      {
+        "name": "realism:ambient/owl",
+        "volume": 0.7
+      }
+    ]
+  },
+  "ambient.bird": {
+    "sounds": [
+      {
+        "name": "realism:ambient/bird1",
+        "volume": 0.5,
+        "stream": true
+      }
+    ]
+  },
+  "ambient.cicada": {
+    "sounds": [
+      {
+        "name": "realism:ambient/cicada",
+        "volume": 0.45
+      }
+    ]
+  },
+  "ambient.frog": {
+    "sounds": [
+      {
+        "name": "realism:ambient/frog",
+        "volume": 0.9
+      }
+    ]
+  },
+  "ambient.wolf_howl": {
+    "sounds": [
+      {
+        "name": "realism:ambient/wolf_howl",
+        "volume": 0.9
+      }
+    ]
+  },
+  "ambient.stream": {
+    "sounds": [
+      {
+        "name": "realism:ambient/stream",
+        "volume": 0.75,
+        "stream": true
+      }
+    ]
+  },
+  "ambient.rain_roof": {
+    "sounds": [
+      {
+        "name": "realism:ambient/rain_roof",
+        "volume": 0.6,
+        "stream": true
+      }
+    ]
+  },
+  "ambient.forest_rustle": {
+    "sounds": [
+      {
+        "name": "realism:ambient/forest_rustle",
+        "volume": 0.45,
+        "stream": true
+      }
+    ]
+  },
+  "weather.thunder_far": {
+    "sounds": [
+      {
+        "name": "realism:weather/thunder_far",
+        "volume": 0.9
+      }
+    ]
+  },
+  "body.breath_heavy": {
+    "sounds": [
+      {
+        "name": "realism:body/breath_heavy"
+      }
+    ]
+  }
+}

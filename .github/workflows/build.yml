@@ -1,0 +1,63 @@
+name: build
+
+# Builds the plugin on every push/PR and turns version tags (v*) into releases
+# with Homestead.jar + the zipped resource pack attached.
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build plugin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Build with Maven
+        working-directory: Homestead-Plugin-src/homestead
+        run: mvn -B clean package
+
+      - name: Upload plugin jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: Homestead-${{ github.run_number }}
+          path: Homestead-Plugin-src/homestead/target/Homestead.jar
+          if-no-files-found: error
+
+  release:
+    name: Attach release assets
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download built jar
+        uses: actions/download-artifact@v4
+        with:
+          name: Homestead-${{ github.run_number }}
+          path: dist
+
+      - name: Zip resource pack (pack.mcmeta at zip root)
+        run: |
+          cd Realism-ResourcePack-Homestead-v6
+          zip -r "../Homestead-ResourcePack-${{ github.ref_name }}.zip" .
+
+      - name: Attach to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/Homestead.jar
+            Homestead-ResourcePack-*.zip

@@ -243,7 +243,7 @@ public final class CookingModule extends AbstractModule {
         Material hm = hand.getType();
 
         if (pot.cooking) {
-            p.sendActionBar(mm("<gray>The pot is still simmering..."));
+            p.sendActionBar(mm("<gold>⌛</gold> <gray>The pot is still simmering.</gray>"));
             return;
         }
 
@@ -251,7 +251,7 @@ public final class CookingModule extends AbstractModule {
             if (hm == pot.ready.container() && !plugin.isHomesteadItem(hand)) {
                 serve(p, pot, hand);
             } else {
-                p.sendActionBar(mm("<yellow>Ready! Right-click with a " + nice(pot.ready.container()) + " to serve."));
+                p.sendActionBar(mm("<green>✔ Ready! Right-click with a " + nice(pot.ready.container()) + " to serve."));
             }
             return;
         }
@@ -267,30 +267,30 @@ public final class CookingModule extends AbstractModule {
         }
 
         if (!knownIngredients.contains(hm) || plugin.isHomesteadItem(hand)) {
-            p.sendActionBar(mm("<red>That doesn't belong in a stew."));
+            p.sendActionBar(mm("<red>✖</red> <red>That doesn't belong in the pot.</red>"));
             return;
         }
         if (hm == Material.POTION && !isWaterBottle(hand)) {
             // Potion (the Material) means any potion - a brewed one would make a nasty stew
-            p.sendActionBar(mm("<yellow>The pot only boils plain water bottles."));
+            p.sendActionBar(mm("<yellow>⚠</yellow> <yellow>The pot only boils plain water bottles.</yellow>"));
             return;
         }
         if (pot.total() >= MAX_ITEMS) {
-            p.sendActionBar(mm("<red>The pot is full. Stir it with a stick."));
+            p.sendActionBar(mm("<red>⚠</red> <red>The pot is full, stir it with a stick.</red>"));
             return;
         }
         if (p.getGameMode() != GameMode.CREATIVE) hand.setAmount(hand.getAmount() - 1);
         pot.contents.merge(hm, 1, Integer::sum);
         p.playSound(b.getLocation(), Sound.BLOCK_BREWING_STAND_BREW, 0.5f, 1.4f);
-        p.sendActionBar(mm("<green>Added " + nice(hm) + " <gray>(" + pot.total() + "/" + MAX_ITEMS + ")"));
+        p.sendActionBar(mm("<green>✚</green> " + nice(hm) + " <dark_gray>(" + pot.total() + "/" + MAX_ITEMS + ")"));
     }
 
     private void showContents(Player p, Pot pot) {
         if (pot.contents.isEmpty()) {
-            p.sendActionBar(mm("<gray>The pot is empty. Add ingredients, then stir with a stick."));
+            p.sendActionBar(mm("<gray>♨ The pot is empty, add ingredients then stir with a stick."));
             return;
         }
-        StringBuilder sb = new StringBuilder("<yellow>In the pot: <white>");
+        StringBuilder sb = new StringBuilder("<yellow>♨ In the pot: <white>");
         boolean first = true;
         for (Map.Entry<Material, Integer> en : pot.contents.entrySet()) {
             if (!first) sb.append(", ");
@@ -310,14 +310,14 @@ public final class CookingModule extends AbstractModule {
         }
         if (match == null) {
             p.sendActionBar(mm(pot.contents.isEmpty()
-                    ? "<gray>Nothing to cook yet."
-                    : "<red>That combination doesn't make anything. <gray>(/homestead recipes)"));
+                    ? "<gray>♨ Nothing to cook yet."
+                    : "<red>✖</red> <red>No recipe matches these ingredients.</red> <dark_gray>(/homestead recipes)</dark_gray>"));
             return;
         }
         final Recipe recipe = match;
         pot.cooking = true;
         p.playSound(b.getLocation(), Sound.ITEM_BUCKET_FILL, 0.6f, 0.8f);
-        p.sendActionBar(mm("<gold>Cooking " + recipe.name() + "<gold>..."));
+        p.sendActionBar(mm("<gold>⌛</gold> <gold>Cooking " + recipe.name() + "...</gold>"));
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (!pots.containsValue(pot)) return;
             pot.cooking = false;
@@ -341,9 +341,9 @@ public final class CookingModule extends AbstractModule {
         if (pot.servingsLeft <= 0) {
             pot.ready = null;
             pot.contents.clear();
-            p.sendActionBar(mm("<gray>The pot is empty."));
+            p.sendActionBar(mm("<gray>♨ The pot is empty."));
         } else {
-            p.sendActionBar(mm("<green>" + pot.servingsLeft + " serving(s) left."));
+            p.sendActionBar(mm("<green>✔</green> <green>" + pot.servingsLeft + " serving(s) remaining.</green>"));
         }
     }
 

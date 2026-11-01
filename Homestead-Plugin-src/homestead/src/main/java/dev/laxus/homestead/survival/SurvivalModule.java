@@ -122,7 +122,7 @@ public final class SurvivalModule extends AbstractModule {
             Season prev = worldSeason.put(w.getUID(), now);
             if (prev != null && prev != now) {
                 for (Player p : w.getPlayers()) {
-                    p.showTitle(Title.title(mm(now.display), mm("<gray>The season has changed")));
+                    p.showTitle(Title.title(mm(now.display), mm("<dark_gray>◆</dark_gray> <gray>The season has changed</gray>")));
                     p.playSound(p.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1f, 1f);
                 }
             }
@@ -155,6 +155,9 @@ public final class SurvivalModule extends AbstractModule {
                 if (t < 6.0) {
                     p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 0, true, false, false));
                 }
+                if (t <= 2.0 && tick % 8 == 0) {
+                    p.sendActionBar(mm("<red>⚠</red> <yellow>You are dehydrated, drink clean water soon.</yellow>"));
+                }
             }
 
             if (coldOn && temp < coldBelow
@@ -184,16 +187,16 @@ public final class SurvivalModule extends AbstractModule {
         Season s = season(w);
         int level;
         String label;
-        if (temp < 0.0) { level = 0; label = "<blue>Freezing"; }
-        else if (temp < coldBelow) { level = 1; label = "<aqua>Cold"; }
-        else if (temp < 1.0) { level = 2; label = "<green>Mild"; }
-        else if (temp < hotAbove) { level = 3; label = "<gold>Warm"; }
-        else { level = 4; label = "<red>Hot"; }
+        if (temp < 0.0) { level = 0; label = "<blue>❄</blue> <blue>Freezing</blue>"; }
+        else if (temp < coldBelow) { level = 1; label = "<aqua>❅</aqua> <aqua>Cold</aqua>"; }
+        else if (temp < 1.0) { level = 2; label = "<green>●</green> <green>Mild</green>"; }
+        else if (temp < hotAbove) { level = 3; label = "<gold>☀</gold> <gold>Warm</gold>"; }
+        else { level = 4; label = "<red>♨</red> <red>Hot</red>"; }
 
         // text fallback (no resource pack): hud.style: text
         if (!"icons".equalsIgnoreCase(c.getString("hud.style", "icons"))) {
             int full = (int) Math.ceil(thirst(p) / 2.0);
-            return "<aqua>" + "|".repeat(full) + "<dark_gray>" + "|".repeat(10 - full)
+            return "<aqua>" + "▮".repeat(full) + "<dark_gray>" + "▯".repeat(10 - full)
                     + " <gray>| " + s.display + " <gray>| " + label;
         }
 
@@ -296,7 +299,7 @@ public final class SurvivalModule extends AbstractModule {
         double dirty = plugin.getConfig().getDouble("thirst.dirty-water-chance", 0.35);
         if (ThreadLocalRandom.current().nextDouble() < dirty) {
             p.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 100, 0));
-            p.sendActionBar(mm("<yellow>That water wasn't boiled... boil it in the pot first."));
+            p.sendActionBar(mm("<yellow>⚠</yellow> <yellow>That water wasn't boiled, you feel sick. Boil it in the cooking pot first.</yellow>"));
         }
     }
 

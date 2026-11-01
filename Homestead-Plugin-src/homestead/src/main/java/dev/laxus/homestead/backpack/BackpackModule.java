@@ -28,6 +28,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.GrindstoneInventory;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
@@ -88,6 +89,9 @@ public final class BackpackModule extends AbstractModule {
     private final Map<UUID, Float> bodyYaw = new HashMap<>();      // simulated body rotation (head yaw is NOT the body)
     private final Map<UUID, double[]> lastXZ = new HashMap<>();
     private final Map<UUID, Long> openCooldown = new HashMap<>();  // stop sneak + right-click from double-opening
+
+    /** Index of the chestplate within the PlayerInventory (36 boots, 39 helmet). */
+    private static final int CHEST_SLOT = 38;
 
     private final NamespacedKey markerKey;
     private final NamespacedKey idKey;
@@ -211,9 +215,11 @@ public final class BackpackModule extends AbstractModule {
         Skin s = skins.getOrDefault(skinId, skins.get(defaultSkin()));
         ItemStack it = new ItemStack(s.base());
         ItemMeta m = it.getItemMeta();
-        m.lore(List.of(item("<gray>Wear as a chestplate; sneak + right-click while worn to open"),
-                item("<dark_gray>Keeps its contents when dropped"),
-                item("<dark_gray>Combine with a dye to change its look")));
+        m.lore(List.of(
+                item("<aqua>◆</aqua> <gray>Wears in the chest slot</gray> <dark_gray>(no armor value)</dark_gray>"),
+                item("<aqua>◆</aqua> <gray>Right-click in hand to open, or sneak-right-click while worn"),
+                item("<dark_gray>▪ Contents are stored inside the item</dark_gray>"),
+                item("<dark_gray>▪ Craft it together with a dye to restyle it</dark_gray>")));
         m.setMaxStackSize(1);
         // a backpack is storage, not armour: wipe the vanilla chestplate armour bonus
         m.setAttributeModifiers(com.google.common.collect.HashMultimap.create());
@@ -457,10 +463,11 @@ public final class BackpackModule extends AbstractModule {
                 return;
             }
         }
-        // The backpack item is gone (e.g. died while it was open): spill the contents instead of losing them.
+        // The backpack item is gone (e.g. it was taken out mid-open): spill instead of losing the contents.
         for (ItemStack c : contents) {
             if (c != null) p.getWorld().dropItemNaturally(p.getLocation(), c);
         }
+        p.sendActionBar(mm("<yellow>⚠ The backpack vanished while it was open, its contents were dropped at your feet."));
     }
 
     /** Serializes the closed inventory into the Backpack ItemStack iff it is the one that was open. */
@@ -533,6 +540,61 @@ public final class BackpackModule extends AbstractModule {
     @EventHandler
     public void onDrop(PlayerDropItemEvent e) {
         if (viewingBackpack(e.getPlayer()) && isBackpack(e.getItemDrop().getItemStack())) e.setCancelled(true);
+    }
+
+    /**
+     * Wear safety: a backpack may only enter the chest slot if it is empty, or if the item already
+     * there is another backpack (so a re-skinned pack can be swapped in). Covers dragging on the
+     * cursor, hotbar-key swaps and shift-clicks in a plain inventory view; vanilla right-click
+     * auto-equip is already cancelled in the interact handler. Taking the pack off while its
+     * inventory is open would orphan that GUI, so the chest slot stays locked until it is closed.
+     * (Dispenser equips are not gated; they only ever move the pack, never its contents.)
+     */
+    @EventHandler(ignoreCancelled = true)
+    public void onEquipClick(InventoryClickEvent e) {
+        if (!(e.getClickedInventory() instanceof PlayerInventory pi)) return;
+        if (!(e.getWhoClicked() instanceof Player p)) return;
+
+        // on a plain inventory view (the top is the 2x2 crafting area with no holder) a shift-click
+        // makes the chest slot the pack's first destination; any other open container would win first
+        Inventory top = e.getView().getTopInventory();
+        if (e.getClick().isShiftClick() && isBackpack(e.getCurrentItem())
+                && top.getHolder() == null && top.getSize() == 5) {
+            gateOverChestplate(p, pi.getChestplate(), e);
+            return;
+        }
+        if (e.getSlot() != CHEST_SLOT) return;   // raw index of the chestplate in the player inventory
+
+        if (isBackpack(e.getCursor())) {
+            // drag-in with the pack on the cursor
+            gateOverChestplate(p, pi.getChestplate(), e);
+        } else if (e.getClick() == ClickType.NUMBER_KEY
+                && isBackpack(p.getInventory().getItem(e.getHotbarButton()))) {
+            // hotbar-key swap: the pack on your hotbar brought onto the chest slot
+            gateOverChestplate(p, pi.getChestplate(), e);
+        } else if (isBackpack(e.getCurrentItem()) && viewingBackpack(p)) {
+            e.setCancelled(true);
+            p.sendActionBar(mm("<yellow>⚠</yellow> <yellow>Close the backpack before taking it off.</yellow>"));
+            p.playSound(p.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.8f, 0.8f);
+        }
+    }
+
+    /** Cancels the click if the pack would silently bury a different, still-equipped chestplate. */
+    private void gateOverChestplate(Player p, ItemStack chest, InventoryClickEvent e) {
+        if (chest == null || chest.getType().isAir() || isBackpack(chest)) return;
+        e.setCancelled(true);
+        p.sendActionBar(mm("<yellow>⚠</yellow> <yellow>Take off your current chestplate before wearing a backpack.</yellow>"));
+        p.playSound(p.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.8f, 0.8f);
+    }
+
+    /** Grinding would strip the item's custom data and strand its contents. */
+    @EventHandler(ignoreCancelled = true)
+    public void onGrindstone(InventoryClickEvent e) {
+        if (!(e.getView().getTopInventory() instanceof GrindstoneInventory)) return;
+        if (isBackpack(e.getCurrentItem()) || isBackpack(e.getCursor())) {
+            e.setCancelled(true);
+            e.getWhoClicked().sendMessage(mm("<yellow>⚠ A backpack cannot be ground, its contents are stored inside it."));
+        }
     }
 
     @EventHandler

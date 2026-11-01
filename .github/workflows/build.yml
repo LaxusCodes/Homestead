@@ -90,6 +90,8 @@ jobs:
       - name: Replace the rolling 'latest' release
         env:
           GH_TOKEN: ${{ github.token }}
+          # the publish job has no checkout; tell gh which repository it is talking to
+          GH_REPO: ${{ github.repository }}
           RUN: ${{ github.run_number }}
           SHA: ${{ github.sha }}
         run: |

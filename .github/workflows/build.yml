@@ -10,6 +10,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
+  # one bump per workflow run (= per commit build), e.g. 0.1.42; overrides pom's 0.1.0 local default
+  PLUGIN_VERSION: 0.1.${{ github.run_number }}
+
 jobs:
   build:
     name: Build plugin
@@ -28,14 +32,14 @@ jobs:
           pip install pillow pyyaml numpy
           python Homestead-Plugin-src/homestead/tools/verify_pack.py Realism-ResourcePack-Homestead-v6 Homestead-Plugin-src/homestead/src/main/resources/config.yml
 
-      - name: Build with Maven
+      - name: Build with Maven (version ${{ env.PLUGIN_VERSION }})
         working-directory: Homestead-Plugin-src/homestead
-        run: mvn -B clean package
+        run: mvn -B clean package "-Dhomestead.version=${{ env.PLUGIN_VERSION }}"
 
       - name: Upload plugin jar
         uses: actions/upload-artifact@v4
         with:
-          name: Homestead-${{ github.run_number }}
+          name: Homestead-${{ env.PLUGIN_VERSION }}
           path: Homestead-Plugin-src/homestead/target/Homestead.jar
           if-no-files-found: error
 
@@ -52,7 +56,7 @@ jobs:
       - name: Download built jar
         uses: actions/download-artifact@v4
         with:
-          name: Homestead-${{ github.run_number }}
+          name: Homestead-${{ env.PLUGIN_VERSION }}
           path: dist
 
       - name: Zip resource pack (pack.mcmeta at zip root)

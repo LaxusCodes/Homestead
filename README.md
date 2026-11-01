@@ -14,8 +14,8 @@ Cozy "Vanilla+" survival for Minecraft servers: a **Paper plugin** plus a **reso
 Any push to `main` runs [`.github/workflows/build.yml`](.github/workflows/build.yml):
 
 1. Open the repo → **Actions** tab → latest run
-2. Download the **Homestead** artifact (the plugin jar)
-3. Drop it into `plugins/`
+2. Download the **Homestead-0.1.\<run number\>** artifact (it contains the raw `Homestead.jar`; GitHub always wraps artifact *downloads* in a zip, that part can't be avoided)
+3. Drop `Homestead.jar` into `plugins/` — `/version Homestead` shows the bumped build version (one bump per run)
 
 Push a tag like `v0.1.1` and the workflow additionally creates a **release** with `Homestead.jar` + the zipped resource pack ready for download.
 

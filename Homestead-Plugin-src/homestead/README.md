@@ -55,6 +55,7 @@ Nudge positions in config (then regenerate the pack, see below):
 mvn clean package
 ```
 Jar: `target/Homestead.jar` → drop in `plugins/`. Keep the Realism plugin too (soft-depend).
+CI builds with `-Dhomestead.version=0.1.<run number>` so every run bumps the plugin version (local builds stay `0.1.0`); `plugin.yml` gets it via resource filtering.
 
 ## Resource pack
 Use **Realism-ResourcePack-Homestead-v6.zip** (your pack + new HUD glyph bars + 256px detailed backpack skins + wine, must and Golden Leaf art + model overrides). `pack.mcmeta` covers 1.20.1 → latest (`pack_format: 15` + `supported_formats` up to 99999) so ViaVersion clients of any version accept it.

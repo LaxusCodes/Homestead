@@ -6,13 +6,15 @@
 
   <groupId>dev.laxus</groupId>
   <artifactId>homestead</artifactId>
-  <version>0.1.0</version>
+  <!-- CI bumps this per run (one run = one commit build): 0.1.<run number>; local builds stay 0.1.0 -->
+  <version>${homestead.version}</version>
   <packaging>jar</packaging>
   <name>Homestead</name>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.release>21</maven.compiler.release>
+    <homestead.version>0.1.0</homestead.version>
   </properties>
 
   <repositories>
@@ -33,6 +35,18 @@
 
   <build>
     <finalName>Homestead</finalName>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>true</filtering>
+        <includes><include>plugin.yml</include></includes>
+      </resource>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>false</filtering>
+        <excludes><exclude>plugin.yml</exclude></excludes>
+      </resource>
+    </resources>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

@@ -21,6 +21,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.world.EntitiesLoadEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -46,11 +47,14 @@ import static dev.laxus.homestead.Text.mm;
 /**
  * Furniture built from an ItemDisplay (visual) plus an Interaction entity (hitbox).
  *
- * Fixes the "ghost furniture" issue: the visible model and the clickable hitbox used to
- * be offset from each other (the model floated half a block up). Now
- *  - the display renders the model anchored to the floor of its block, and
- *  - the Interaction hitbox is spawned at the vertical center of the visible model,
- * so what you see is exactly what you click.
+ * Ghost-furniture fix (v2):
+ *  - An ItemDisplay with the NONE transform centres the model on its origin, so the display is
+ *    lifted by half the (scaled) model height; the model now sits ON the floor, not in it.
+ *  - An Interaction entity's position is the BOTTOM centre of its hitbox, so it is spawned at the
+ *    floor and spans floor..floor+height - exactly over the visible model.
+ *  - Display and hitbox are linked both ways, and picking up removes both.
+ *  - Furniture placed by older versions is migrated when its chunk loads, and orphaned halves
+ *    (a display without a hitbox or vice versa) are cleaned up.
  *
  * Place by right-clicking the top of a block with a furniture item. Sit by right-clicking.
  * Sneak + right-click to pick it up (owner or homestead.admin).
@@ -71,6 +75,8 @@ public final class DecorModule extends AbstractModule {
     private final NamespacedKey interactKey;
     private final NamespacedKey homeKey;
     private final NamespacedKey itemKey;
+    private final NamespacedKey versionKey;
+    private static final int LAYOUT_VERSION = 2;
 
     public DecorModule(HomesteadPlugin plugin) {
         super(plugin);
@@ -80,6 +86,7 @@ public final class DecorModule extends AbstractModule {
         interactKey = new NamespacedKey(plugin, "decor_interact");
         homeKey = new NamespacedKey(plugin, "decor_home");
         itemKey = new NamespacedKey(plugin, "decor_item");
+        versionKey = new NamespacedKey(plugin, "decor_v");
     }
 
     @Override
@@ -163,32 +170,37 @@ public final class DecorModule extends AbstractModule {
         plugin.quest(p, "DECOR", id);
     }
 
-    private void spawn(Def d, Location loc, UUID owner) {
+    /** Local-space transform that stands the (centred) item model on the floor. */
+    private Transformation transformFor(Def d) {
         float s = (float) d.scale();
+        // model origin is its centre: lift by half its scaled height, plus the optional manual nudge
+        float lift = 0.5f * s + (float) d.displayY();
+        return new Transformation(
+                new Vector3f(0f, lift, 0f),
+                new AxisAngle4f(0f, 0f, 0f, 1f),
+                new Vector3f(s, s, s),
+                new AxisAngle4f(0f, 0f, 0f, 1f));
+    }
+
+    private void spawn(Def d, Location loc, UUID owner) {
         String home = blockKey(loc);
 
-        // Visual: model anchored to the floor, scaled from its origin. Per-item `display-y`
-        // shifts it if a particular model needs manual nudging.
         ItemDisplay display = loc.getWorld().spawn(loc, ItemDisplay.class, disp -> {
             disp.setItemStack(createItem(d.id()));
             disp.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.NONE);
             disp.setBillboard(Display.Billboard.FIXED);
             disp.setShadowRadius(0f);
             disp.setInvulnerable(true);
-            disp.setTransformation(new Transformation(
-                    new Vector3f(0f, (float) d.displayY(), 0f),
-                    new AxisAngle4f(0f, 0f, 0f, 1f),
-                    new Vector3f(s, s, s),
-                    new AxisAngle4f(0f, 0f, 0f, 1f)));
+            disp.setTransformation(transformFor(d));
         });
         tag(display, d.id(), owner, home);
         display.setRotation(loc.getYaw(), 0f);
 
-        // Hitbox: vertical center of the visible volume so the box matches what you see.
-        Location hit = loc.clone().add(0, d.height() / 2.0, 0);
-        Interaction interaction = hit.getWorld().spawn(hit, Interaction.class, in -> {
+        // Hitbox: an Interaction's position is the BOTTOM centre of its box, so it goes at the floor.
+        Interaction interaction = loc.getWorld().spawn(loc, Interaction.class, in -> {
             in.setInteractionWidth((float) d.width());
             in.setInteractionHeight((float) d.height());
+            in.setResponsive(true);
         });
         tag(interaction, d.id(), owner, home);
         interaction.getPersistentDataContainer().set(displayKey, PersistentDataType.STRING, display.getUniqueId().toString());
@@ -201,20 +213,30 @@ public final class DecorModule extends AbstractModule {
         pdc.set(idKey, PersistentDataType.STRING, id);
         pdc.set(ownerKey, PersistentDataType.STRING, owner.toString());
         pdc.set(homeKey, PersistentDataType.STRING, home);
+        pdc.set(versionKey, PersistentDataType.INTEGER, LAYOUT_VERSION);
     }
 
     // ------------------------------------------------------ click resolution
 
-    /** Furnitures linked both ways: each entity carries the other's UUID via these keys. */
-    private Interaction pairInteraction(Entity furniture) {
-        String key = furniture.getPersistentDataContainer().get(interactKey, PersistentDataType.STRING);
-        if (key == null) return furniture instanceof Interaction in ? in : null;
+    /** Furniture is two linked entities: the ItemDisplay (visual) and the Interaction (hitbox). */
+    private Entity peerOf(Entity e) {
+        PersistentDataContainer pdc = e.getPersistentDataContainer();
+        String key = e instanceof Interaction
+                ? pdc.get(displayKey, PersistentDataType.STRING)
+                : pdc.get(interactKey, PersistentDataType.STRING);
+        if (key == null) return null;
         try {
-            Entity en = Bukkit.getEntity(UUID.fromString(key));
-            return en instanceof Interaction in ? in : null;
+            return Bukkit.getEntity(UUID.fromString(key));
         } catch (IllegalArgumentException ignored) {
             return null;
         }
+    }
+
+    /** The hitbox half of a furniture piece (used as the stable seat anchor). */
+    private Entity hitboxOf(Entity e) {
+        if (e instanceof Interaction) return e;
+        Entity peer = peerOf(e);
+        return peer instanceof Interaction ? peer : e;
     }
 
     private Def defOf(Entity e) {
@@ -253,8 +275,7 @@ public final class DecorModule extends AbstractModule {
         if (p.isSneaking()) {
             pickUp(p, furniture, d);
         } else if (d.seat()) {
-            Entity anchor = furniture instanceof ItemDisplay ? pairInteraction(furniture) : furniture;
-            Entity target = anchor != null ? anchor : furniture;
+            Entity target = hitboxOf(furniture);
             if (seatByFurniture.get(target.getUniqueId()) instanceof ArmorStand existing
                     && existing.isValid() && !existing.getPassengers().isEmpty()) {
                 p.sendActionBar(mm("<yellow>Someone is already sitting there."));
@@ -272,27 +293,17 @@ public final class DecorModule extends AbstractModule {
             return;
         }
         Location loc = furniture.getLocation();
-        // remove the paired entity, clear its seat
-        Interaction pair = pairInteraction(furniture);
-        Entity other = pair != null ? pair : null;
-        if (other == null) {
-            String dispKey = pdc.get(displayKey, PersistentDataType.STRING);
-            if (dispKey != null) {
-                Entity en = null;
-                try {
-                    en = Bukkit.getEntity(UUID.fromString(dispKey));
-                } catch (IllegalArgumentException ignored) {}
-                other = en;
-            }
-        }
-        if (other != null) {
-            ArmorStand seat = seatByFurniture.remove(other.getUniqueId());
+        Entity peer = peerOf(furniture);
+
+        // clear any seats tied to either half, then remove BOTH halves (no leftover ghost model)
+        for (Entity part : new Entity[]{furniture, peer}) {
+            if (part == null) continue;
+            ArmorStand seat = seatByFurniture.remove(part.getUniqueId());
             if (seat != null) seat.remove();
-            other.remove();
         }
-        ArmorStand mySeat = seatByFurniture.remove(furniture.getUniqueId());
-        if (mySeat != null) mySeat.remove();
+        if (peer != null) peer.remove();
         furniture.remove();
+
         if (p.getGameMode() != GameMode.CREATIVE) {
             loc.getWorld().dropItemNaturally(loc.clone().add(0, 0.5, 0), createItem(d.id()));
         }
@@ -366,6 +377,71 @@ public final class DecorModule extends AbstractModule {
             a.remove();
             seatByFurniture.values().remove(a);
         }
+    }
+
+    // ------------------------------------------------- migration & orphan cleanup
+
+    /**
+     * When a chunk's entities load: upgrade furniture placed by older versions (model half buried,
+     * hitbox floating) and remove orphaned halves left behind by the old pick-up bug.
+     */
+    @EventHandler
+    public void onEntitiesLoad(EntitiesLoadEvent e) {
+        List<Entity> mine = new ArrayList<>();
+        java.util.Set<UUID> present = new java.util.HashSet<>();
+        for (Entity en : e.getEntities()) {
+            if (en.getPersistentDataContainer().has(idKey, PersistentDataType.STRING)) {
+                mine.add(en);
+                present.add(en.getUniqueId());
+            }
+        }
+        for (Entity en : mine) {
+            PersistentDataContainer pdc = en.getPersistentDataContainer();
+            String peerKey = en instanceof Interaction
+                    ? pdc.get(displayKey, PersistentDataType.STRING)
+                    : pdc.get(interactKey, PersistentDataType.STRING);
+            boolean orphan;
+            try {
+                orphan = peerKey == null || !present.contains(UUID.fromString(peerKey));
+            } catch (IllegalArgumentException ex) {
+                orphan = true;
+            }
+            if (orphan) {
+                en.remove();
+                continue;
+            }
+            Integer v = pdc.get(versionKey, PersistentDataType.INTEGER);
+            if (v != null && v >= LAYOUT_VERSION) continue;
+            Def d = defOf(en);
+            if (d == null) continue;
+            if (en instanceof ItemDisplay disp) {
+                disp.setTransformation(transformFor(d));
+            } else if (en instanceof Interaction in) {
+                // old hitboxes were spawned half their height above the floor
+                in.teleport(floorOf(in));
+                in.setInteractionWidth((float) d.width());
+                in.setInteractionHeight((float) d.height());
+                in.setResponsive(true);
+            }
+            pdc.set(versionKey, PersistentDataType.INTEGER, LAYOUT_VERSION);
+        }
+    }
+
+    /** Floor position of an old-layout hitbox: its home block's Y at the same x/z. */
+    private Location floorOf(Entity en) {
+        String home = en.getPersistentDataContainer().get(homeKey, PersistentDataType.STRING);
+        Location l = en.getLocation();
+        if (home != null) {
+            String[] p = home.split(",");
+            if (p.length == 3) {
+                try {
+                    l.setY(Integer.parseInt(p[1]));
+                } catch (NumberFormatException ignored) {
+                    // keep current Y
+                }
+            }
+        }
+        return l;
     }
 
     // ----------------------------------------------------------------- helpers

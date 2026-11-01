@@ -2,6 +2,7 @@ package dev.laxus.homestead.crafting;
 
 import dev.laxus.homestead.AbstractModule;
 import dev.laxus.homestead.HomesteadPlugin;
+import dev.laxus.homestead.cooking.CookingModule;
 import dev.laxus.homestead.decor.DecorModule;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -11,6 +12,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.inventory.CraftItemEvent;
+import org.bukkit.event.inventory.PrepareItemCraftEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.Recipe;
@@ -44,6 +46,7 @@ public final class CraftingModule extends AbstractModule {
 
     private final List<NamespacedKey> keys = new ArrayList<>();
     private final Map<String, String> byKey = new HashMap<>(); // recipe key -> result id (for quest logs)
+    private final Map<String, String> wineChecks = new HashMap<>(); // wine recipe key -> must id its ingredients must be
 
     public CraftingModule(HomesteadPlugin plugin) {
         super(plugin);
@@ -147,6 +150,8 @@ public final class CraftingModule extends AbstractModule {
             register("craft_golden_leaf", "golden_leaf", DEFAULTS.get("golden_leaf"), 1);
         }
 
+        registerCookedItems(custom);
+
         for (Player p : Bukkit.getOnlinePlayers()) {
             for (NamespacedKey k : keys) p.discoverRecipe(k);
         }
@@ -158,6 +163,64 @@ public final class CraftingModule extends AbstractModule {
         for (NamespacedKey k : keys) Bukkit.removeRecipe(k);
         keys.clear();
         byKey.clear();
+        wineChecks.clear();
+    }
+
+    /**
+     * Crafting-table recipes for the cooked items, so every Homestead item can be made by hand:
+     *  - meals / must: the pot's ingredients plus its container, shapeless, ONE serving
+     *    (the pot makes several servings from the same ingredients, so it stays the better deal)
+     *  - wine: three must bottles (checked by tag, not just by material) - a costly shortcut
+     *    around the barrel. Toggle with crafting.auto-meals / crafting.auto-wine.
+     */
+    private void registerCookedItems(ConfigurationSection custom) {
+        CookingModule cook = plugin.cooking();
+        if (cook == null) return;
+        if (plugin.getConfig().getBoolean("crafting.auto-meals", true)) {
+            for (String id : cook.recipeIds()) {
+                CookingModule.Recipe r = cook.recipeOf(id);
+                if (r == null || (custom != null && custom.contains(id))) continue;
+                List<String> mats = new ArrayList<>();
+                for (Map.Entry<Material, Integer> en : r.ingredients().entrySet()) {
+                    for (int i = 0; i < en.getValue(); i++) mats.add(en.getKey().name());
+                }
+                mats.add((r.container() == null ? Material.BOWL : r.container()).name());
+                if (mats.size() > 9) {
+                    plugin.getLogger().info("Crafting: '" + id + "' needs more than 9 ingredients, pot only.");
+                    continue;
+                }
+                register("craft_meal_" + id, "meal:" + id, shapeless(mats.toArray(new String[0])), 1);
+            }
+        }
+        if (plugin.wine() != null && plugin.getConfig().getBoolean("crafting.auto-wine", true)) {
+            for (String wid : plugin.wine().ids()) {
+                String mustId = plugin.wine().mustOf(wid);
+                CookingModule.Recipe must = mustId == null ? null : cook.recipeOf(mustId);
+                if (must == null || (custom != null && custom.contains(wid))) continue;
+                String m = must.base().name();
+                String keyName = "craft_wine_" + wid;
+                register(keyName, "wine:" + wid, shapeless(m, m, m), 1);
+                wineChecks.put(keyName, mustId);
+            }
+        }
+    }
+
+    /** Wine recipes only accept real must bottles (a plain honey bottle must not match). */
+    @EventHandler
+    public void onPrepare(PrepareItemCraftEvent e) {
+        if (!(e.getRecipe() instanceof org.bukkit.Keyed k)) return;
+        String must = wineChecks.get(k.getKey().getKey());
+        if (must == null || plugin.cooking() == null) return;
+        int ok = 0;
+        for (ItemStack it : e.getInventory().getMatrix()) {
+            if (it == null || it.getType().isAir()) continue;
+            if (!must.equals(plugin.cooking().mealIdOf(it))) {
+                e.getInventory().setResult(null);
+                return;
+            }
+            ok++;
+        }
+        if (ok != 3) e.getInventory().setResult(null);
     }
 
     private void register(String keyName, String result, RecipeSpec spec, int amount) {
@@ -197,10 +260,16 @@ public final class CraftingModule extends AbstractModule {
         for (Player p : Bukkit.getOnlinePlayers()) p.discoverRecipe(key);
     }
 
-    /** result forms: "decor:<id>", "<furniture id>", "backpack", "backpack:<skin>", "golden_leaf"/"golden-leaf". */
+    /** result forms: "decor:<id>", "<furniture id>", "meal:<id>", "wine:<id>", "backpack", "backpack:<skin>", "golden_leaf". */
     private ItemStack resolveResult(String result) {
         if (result.equalsIgnoreCase("golden_leaf") || result.equalsIgnoreCase("golden-leaf")) {
             return plugin.artifacts() != null ? plugin.artifacts().createGoldenLeaf() : null;
+        }
+        if (result.toLowerCase(Locale.ROOT).startsWith("meal:")) {
+            return plugin.cooking() == null ? null : plugin.cooking().createMeal(result.substring(5));
+        }
+        if (result.toLowerCase(Locale.ROOT).startsWith("wine:")) {
+            return plugin.wine() == null ? null : plugin.wine().createWine(result.substring(5));
         }
         if (result.toLowerCase(Locale.ROOT).startsWith("decor:")) {
             DecorModule d = plugin.decor();

@@ -188,31 +188,31 @@ public final class SurvivalModule extends AbstractModule {
         }
 
         /*
-         * Icon style - glyph overlay anchored to the bottom HUD:
-         *   thirst bar (one wide glyph) pixel-locked above the hunger bar,
-         *   temperature bar + season icon pinned to the right.
-         * The pack's font providers give each piece its own ascent; the invisible
-         * spacer glyphs (E020 = 9px, E021 = 3px) compute the exact offsets from
-         * config (hud.thirst-left / hud.temp-right). The action bar renders the
-         * string centered, so the leading spacer run balances the whole line.
+         * Icon style - glyph overlay on the action bar line, anchored to the bottom HUD:
+         *   thirst bar: 81px wide (same as the hunger bar), pixel-locked directly above it
+         *   temperature bar + season icon: same row, on the right.
+         * The action bar centres the string, so a leading run of invisible spacer glyphs (space
+         * provider: E020 = 9px, E021 = 3px, E022 = 1px) puts the left edge exactly at
+         * (screen centre + 10px) = the left edge of the hunger bar.
          *
          * Glyph map: E000-E014 = thirst bar (level 0..20), E015-E019 = temp bar
-         * (0=freezing..4=hot), E01A-E01D = seasons, E020 = 9px spacer, E021 = 3px spacer.
+         * (0=freezing..4=hot), E01A-E01D = seasons.
+         * Advances: thirst glyph 82px, temp glyph 46px, season glyph 10px (width + 1).
          */
         int thirstLevel = Math.max(0, Math.min(20,
                 (int) Math.round(Math.max(0.0, Math.min(MAX_THIRST, thirst(p))))));
-        int thirstLeft = Math.max(3, c.getInt("hud.thirst-left", 3));
-        int tempRight = Math.max(thirstLeft + 138, c.getInt("hud.temp-right", 150));
-        int gap = Math.max(3, tempRight - thirstLeft - 135);
-        if (gap % 3 != 0) gap += 3 - (gap % 3);
+        int tempRight = Math.max(140, c.getInt("hud.temp-right", 140));
+        int gap = Math.max(3, tempRight - 137);              // px between thirst bar and temperature bar
+        if ((138 + gap) % 2 != 0) gap++;                     // keep the centred string on whole pixels
+        int rest = 82 + gap + 46 + 10;                       // everything after the leading spacer
+        int lead = 20 + rest;                                // puts the thirst bar's left edge at centre + 10
 
         StringBuilder sb = new StringBuilder("<white><font:homestead:hud>");
-        sb.append(spacers(thirstLeft + tempRight + 12));   // balance for the centered render
-        sb.append((char) (0xE000 + thirstLevel));          // thirst bar
-        sb.append(spacers(gap));                            // gap between the bars
-        sb.append((char) (0xE015 + level));                // temperature bar
-        sb.append((char) 0xE021);                           // 3px
-        sb.append((char) (0xE01A + s.ordinal()));          // season icon
+        sb.append(spacers(lead));
+        sb.append((char) (0xE000 + thirstLevel));            // thirst bar
+        sb.append(spacers(gap));                             // gap between the bars
+        sb.append((char) (0xE015 + level));                  // temperature bar
+        sb.append((char) (0xE01A + s.ordinal()));            // season icon
         sb.append("</font>");
         if (c.getBoolean("hud.labels", false)) {
             sb.append(" ").append(s.display).append(" ").append(label);
@@ -220,15 +220,17 @@ public final class SurvivalModule extends AbstractModule {
         return sb.toString();
     }
 
-    /** Spacer glyph chain for an exact pixel distance (9px E020 glyphs plus one 3px E021 if needed). */
+    /** Spacer glyph chain for an exact pixel distance (9px, 3px and 1px glyphs from the space provider). */
     private String spacers(int px) {
         if (px <= 0) return "";
         StringBuilder sb = new StringBuilder();
         int n9 = px / 9;
         int rem = px % 9;
         int n3 = rem / 3;
+        int n1 = rem % 3;
         for (int i = 0; i < n9; i++) sb.append((char) 0xE020);
         for (int i = 0; i < n3; i++) sb.append((char) 0xE021);
+        for (int i = 0; i < n1; i++) sb.append((char) 0xE022);
         return sb.toString();
     }
 

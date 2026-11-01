@@ -25,8 +25,9 @@ import static dev.laxus.homestead.Text.mm;
 
 /**
  * The in-game UI: quest menu (/quests) and recipe book (/homestead recipes).
- * Both are view-only chat-free menus with useful lore; clicking anything only
- * plays a soft sound (no item theft).
+ * Framed, colour-coded menus with progress bars. They are view-only: every click is cancelled,
+ * so nothing can be taken out. (The old quest menu had a loop that never advanced when there
+ * were fewer quests than slots; that hang is gone.)
  */
 public final class HomesteadMenus extends AbstractModule {
 
@@ -57,17 +58,62 @@ public final class HomesteadMenus extends AbstractModule {
         return inv.getHolder() instanceof MenuHolder;
     }
 
+    // ------------------------------------------------------------ shared pieces
+
+    /** Blank pane: no name, no tooltip, so the frame never shows hover text. */
+    private ItemStack filler(Material mat) {
+        ItemStack it = new ItemStack(mat);
+        ItemMeta m = it.getItemMeta();
+        m.displayName(net.kyori.adventure.text.Component.space());
+        m.setHideTooltip(true);
+        it.setItemMeta(m);
+        return it;
+    }
+
+    /** Frame the inventory (outer ring) with the given pane colours; corners use the accent. */
+    private void frame(Inventory inv, Material pane, Material accent) {
+        int rows = inv.getSize() / 9;
+        for (int i = 0; i < inv.getSize(); i++) {
+            int r = i / 9, c = i % 9;
+            boolean edge = r == 0 || r == rows - 1 || c == 0 || c == 8;
+            if (!edge) continue;
+            boolean corner = (r == 0 || r == rows - 1) && (c == 0 || c == 8);
+            inv.setItem(i, filler(corner ? accent : pane));
+        }
+    }
+
+    /** Slots inside the frame, left to right, top to bottom (7 per row). */
+    private List<Integer> innerSlots(int rows) {
+        List<Integer> out = new ArrayList<>();
+        for (int r = 1; r < rows - 1; r++) {
+            for (int c = 1; c <= 7; c++) out.add(r * 9 + c);
+        }
+        return out;
+    }
+
+    /** 10-segment progress bar coloured by how far along it is. */
+    private String bar(int have, int need) {
+        double f = Math.max(0.0, Math.min(1.0, (double) have / Math.max(1, need)));
+        int filled = (int) Math.round(f * 10);
+        String col = f >= 1.0 ? "<green>" : f >= 0.5 ? "<yellow>" : "<gold>";
+        return col + "\u25B0".repeat(filled) + "<dark_gray>" + "\u25B1".repeat(10 - filled)
+                + " <white>" + (int) Math.round(f * 100) + "%";
+    }
+
     // ----------------------------------------------------------------- quests
 
     public void openQuests(Player p) {
-        MenuHolder h = new MenuHolder("quests");
-        Inventory inv = Bukkit.createInventory(h, 27, mm("<dark_green>Homestead Quests"));
-        h.inv = inv;
-
         List<String[]> items = plugin.quests() != null ? plugin.quests().menuItems(p) : List.of();
-        int slot = 0;
+        int rows = Math.max(3, Math.min(6, (items.size() + 6) / 7 + 2));
+        MenuHolder h = new MenuHolder("quests");
+        Inventory inv = Bukkit.createInventory(h, rows * 9, mm("<gradient:#7fd36b:#2e8b57><bold>Homestead Quests"));
+        h.inv = inv;
+        frame(inv, Material.GREEN_STAINED_GLASS_PANE, Material.LIME_STAINED_GLASS_PANE);
+        for (int i : innerSlots(rows)) inv.setItem(i, filler(Material.BLACK_STAINED_GLASS_PANE));
+
+        List<Integer> slots = innerSlots(rows);
+        int doneCount = 0, idx = 0;
         for (String[] q : items) {
-            String id = q[0];
             String name = q[1];
             String type = q[2];
             String desc = q[3];
@@ -75,33 +121,35 @@ public final class HomesteadMenus extends AbstractModule {
             boolean open = q[5].equals("1");
             int have = Integer.parseInt(q[6]);
             int need = Integer.parseInt(q[7]);
+            if (done) doneCount++;
 
-            ItemStack icon;
-            if (done) icon = new ItemStack(Material.LIME_WOOL);
-            else if (open) icon = iconFor(type);
-            else icon = new ItemStack(Material.GRAY_DYE);
-
+            ItemStack icon = done ? new ItemStack(Material.LIME_DYE) : open ? iconFor(type) : new ItemStack(Material.GRAY_DYE);
             ItemMeta m = icon.getItemMeta();
-            m.displayName(item(done ? "<green>" + name : open ? "<yellow>" + name : "<dark_gray>" + name));
+            m.displayName(item(done ? "<green>\u2714 " + name : open ? "<yellow>" + name : "<dark_gray>" + name));
             List<String> lore = new ArrayList<>();
-            lore.add(done ? "<green>Completed ✓" : open ? "<gray>" + desc : "<dark_gray>Locked");
-            if (!done && open) {
-                int filled = Math.min(10, (int) Math.round(10.0 * have / Math.max(1, need)));
-                lore.add("<green>" + "|".repeat(filled) + "<dark_gray>" + "|".repeat(10 - filled)
-                        + " <gray>" + have + "/" + need);
-                lore.add("<dark_gray>Progress: <green>" + progressWord(filled));
+            if (done) {
+                lore.add("<green>Completed");
+            } else if (open) {
+                lore.add("<gray>" + desc);
+                lore.add("");
+                lore.add(bar(have, need) + " <dark_gray>(" + have + "/" + need + ")");
+            } else {
+                lore.add("<dark_gray>Locked - finish the earlier quests first");
             }
             m.lore(lore.stream().map(ll -> mm(ll).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)).toList());
+            m.setHideTooltip(false);
+            m.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ATTRIBUTES, org.bukkit.inventory.ItemFlag.HIDE_ADDITIONAL_TOOLTIP);
             icon.setItemMeta(m);
-            if (slot < inv.getSize()) inv.setItem(slot++, icon);
+            if (idx < slots.size()) inv.setItem(slots.get(idx++), icon);
         }
 
-        // a small filler glass pane behind
-        ItemStack glass = new ItemStack(Material.WHITE_STAINED_GLASS_PANE);
-        ItemMeta gm = glass.getItemMeta();
-        gm.displayName(item("<dark_gray>"));
-        glass.setItemMeta(gm);
-        while (slot < inv.getSize()) inv.setItem(slot, glass);
+        // summary in the bottom-centre of the frame
+        ItemStack sum = new ItemStack(Material.WRITABLE_BOOK);
+        ItemMeta sm = sum.getItemMeta();
+        sm.displayName(item("<gold>Your progress"));
+        sm.lore(lore(bar(doneCount, Math.max(1, items.size())), "<gray>" + doneCount + " of " + items.size() + " quests completed"));
+        sum.setItemMeta(sm);
+        inv.setItem(inv.getSize() - 5, sum);
 
         p.openInventory(inv);
         p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, 1.4f);
@@ -134,82 +182,67 @@ public final class HomesteadMenus extends AbstractModule {
 
     public void openRecipes(Player p) {
         MenuHolder h = new MenuHolder("recipes");
-        Inventory inv = Bukkit.createInventory(h, 45, mm("<dark_red>Homestead Recipe Book"));
+        Inventory inv = Bukkit.createInventory(h, 54, mm("<gradient:#e0a458:#a8431f><bold>Homestead Recipe Book"));
         h.inv = inv;
-        int slot = 0;
+        frame(inv, Material.ORANGE_STAINED_GLASS_PANE, Material.RED_STAINED_GLASS_PANE);
+        for (int i : innerSlots(6)) inv.setItem(i, filler(Material.BLACK_STAINED_GLASS_PANE));
 
-        // cooking recipes
+        // top three rows: everything you can cook (pot) - also craftable by hand, one serving
+        List<Integer> slots = innerSlots(6);
+        int idx = 0;
         CookingModule c = plugin.cooking();
         if (c != null) {
             for (String[] entry : c.menuEntries()) {
-                String id = entry[0];
-                ItemStack icon = c.createMeal(id);
+                ItemStack icon = c.createMeal(entry[0]);
                 if (icon == null) icon = new ItemStack(Material.BOWL);
                 ItemMeta m = icon.getItemMeta();
-                m.lore(lore(entry[1]));
+                List<net.kyori.adventure.text.Component> lines = new ArrayList<>(lore(entry[1]));
+                lines.addAll(lore("", "<dark_gray>Pot: several servings  |  Crafting table: 1 serving"));
+                m.lore(lines);
                 icon.setItemMeta(m);
-                if (slot < inv.getSize()) inv.setItem(slot++, icon);
+                if (idx < 21) inv.setItem(slots.get(idx++), icon);
             }
         }
 
-        // wine info
+        // bottom inner row (row 4): guides
+        int row = 4 * 9;
         WineModule wine = plugin.wine();
         if (wine != null) {
-            ItemStack mustInfo = new ItemStack(Material.GLASS_BOTTLE);
-            ItemMeta mm2 = mustInfo.getItemMeta();
-            mm2.displayName(item("<light_purple>Must Bottles"));
-            mm2.lore(lore("<gray>Cook a must in the pot (fruit + sugar) —<dark_gray> served in bottles."));
-            mustInfo.setItemMeta(mm2);
-
-            ItemStack barrelInfo = new ItemStack(Material.BARREL);
-            ItemMeta bm = barrelInfo.getItemMeta();
-            bm.displayName(item("<gold>Barrel Fermentation"));
-            bm.lore(lore("<gray>Open any barrel and put must bottles inside.", " <dark_gray>The timer starts when they're placed in.", " <dark_gray>When it's done they become wine by themselves."));
-            barrelInfo.setItemMeta(bm);
-            if (slot + 1 < inv.getSize()) {
-                inv.setItem(slot++, mustInfo);
-                inv.setItem(slot++, barrelInfo);
-            }
-
-            ItemStack wineInfo = new ItemStack(Material.HONEY_BOTTLE);
-            ItemMeta wm = wineInfo.getItemMeta();
-            wm.displayName(item("<dark_purple>Wines"));
-            wm.lore(lore("<gray>Drinking wine grants warmth and small boosts,", " <dark_gray>but the Nausea stacks if you keep drinking."));
-            wineInfo.setItemMeta(wm);
-            if (slot < inv.getSize()) inv.setItem(slot++, wineInfo);
+            inv.setItem(row + 1, guide(Material.BARREL, "<gold>Barrel Fermentation",
+                    "<gray>Cook a must in the pot, then open any barrel",
+                    "<gray>and put the bottles inside. No right-click.",
+                    "<dark_gray>The timer starts the moment they land in,",
+                    "<dark_gray>counts down live and keeps running when closed."));
+            inv.setItem(row + 2, guide(Material.HONEY_BOTTLE, "<dark_purple>Wines",
+                    "<gray>Warmth and small boosts, but Nausea stacks",
+                    "<gray>if you keep drinking.",
+                    "<dark_gray>Shortcut: 3 must bottles in a crafting table."));
         }
-
-        // recipes + furniture hint
-        ItemStack furnitureInfo = new ItemStack(Material.OAK_STAIRS);
-        ItemMeta fm = furnitureInfo.getItemMeta();
-        fm.displayName(item("<gold>Furniture"));
-        fm.lore(lore("<gray>All furniture is craftable in a crafting table.", " <dark_gray>Right-click the top of a block to place,", " <dark_gray>right-click to sit, sneak + right-click to pick up."));
-        furnitureInfo.setItemMeta(fm);
-        if (slot < inv.getSize()) inv.setItem(slot++, furnitureInfo);
-
-        ItemStack backpackInfo = new ItemStack(Material.LEATHER);
-        ItemMeta bp = backpackInfo.getItemMeta();
-        bp.displayName(item("<gold>Backpack"));
-        bp.lore(lore("<gray>7x leather + string + chest (top row LSL)", " <dark_gray>Combine it with a dye to change its skin."));
-        backpackInfo.setItemMeta(bp);
-        if (slot < inv.getSize()) inv.setItem(slot++, backpackInfo);
-
-        ItemStack deco = new ItemStack(Material.PAPER);
-        ItemMeta dm = deco.getItemMeta();
-        dm.displayName(item("<gray>Quests & Cooking"));
-        dm.lore(lore("<gray>/quests  - quest progress", " <gray>Right-click a cauldron on a lit campfire while", " <dark_gray>holding ingredients, stir with a stick, serve with a bowl."));
-        deco.setItemMeta(dm);
-        if (slot < inv.getSize()) inv.setItem(slot++, deco);
-
-        ItemStack edge = new ItemStack(Material.WHITE_STAINED_GLASS_PANE);
-        ItemMeta em = edge.getItemMeta();
-        em.displayName(item("<dark_gray>"));
-        edge.setItemMeta(em);
-        // fill the bottom row
-        for (int i = 36; i < 45; i++) inv.setItem(i, edge);
+        inv.setItem(row + 3, guide(Material.OAK_STAIRS, "<gold>Furniture",
+                "<gray>Every piece is craftable at a crafting table.",
+                "<dark_gray>Right-click a block to place, right-click to sit,",
+                "<dark_gray>sneak + right-click to pick up."));
+        inv.setItem(row + 4, guide(Material.LEATHER, "<gold>Backpack",
+                "<gray>7x leather + string + chest (LSL / LCL / LLL)",
+                "<dark_gray>Combine it with a dye to change its skin."));
+        inv.setItem(row + 5, guide(Material.CAMPFIRE, "<gold>Cooking",
+                "<gray>Cauldron on a lit campfire, add ingredients,",
+                "<gray>stir with a stick, serve with a bowl."));
+        inv.setItem(row + 6, guide(Material.PAPER, "<gray>Quests",
+                "<gray>/quests - see your progress"));
 
         p.openInventory(inv);
         p.playSound(p.getLocation(), Sound.ITEM_BOOK_PAGE_TURN, 0.6f, 1.1f);
+    }
+
+    private ItemStack guide(Material mat, String name, String... lines) {
+        ItemStack it = new ItemStack(mat);
+        ItemMeta m = it.getItemMeta();
+        m.displayName(item(name));
+        m.lore(lore(lines));
+        m.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ATTRIBUTES, org.bukkit.inventory.ItemFlag.HIDE_ADDITIONAL_TOOLTIP);
+        it.setItemMeta(m);
+        return it;
     }
 
     private List<net.kyori.adventure.text.Component> lore(String... lines) {
@@ -227,7 +260,7 @@ public final class HomesteadMenus extends AbstractModule {
         if (e.getWhoClicked() instanceof Player p
                 && e.getClickedInventory() == e.getView().getTopInventory()
                 && e.getCurrentItem() != null
-                && e.getCurrentItem().getType() != Material.WHITE_STAINED_GLASS_PANE) {
+                && !e.getCurrentItem().getType().name().endsWith("_STAINED_GLASS_PANE")) {
             p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 0.3f, 1.6f);
         }
     }

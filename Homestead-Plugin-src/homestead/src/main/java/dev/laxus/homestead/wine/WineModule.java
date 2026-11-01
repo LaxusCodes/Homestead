@@ -33,7 +33,7 @@ import static dev.laxus.homestead.Text.mm;
  * Wine making:
  *  1. Cook a "must" (fruit + sugar) in the cooking pot - it comes out in glass bottles.
  *  2. Just put must bottles INTO a vanilla barrel - no special right-click ritual.
- *     The timer starts when the bottles are put in and is reported on every peek.
+ *     The timer starts the moment the bottles land inside and counts down live on the action bar.
  *  3. After ferment-ticks the bottles turn into wine automatically, inside the barrel.
  *  Drinking wine gives Nausea, stacking if you keep drinking.
  */
@@ -92,13 +92,17 @@ public final class WineModule extends AbstractModule {
             }
         }
         plugin.getLogger().info("Loaded " + types.size() + " wine type(s).");
-        every(100L, this::scanOpenBarrels);
+        for (org.bukkit.World w : Bukkit.getWorlds()) {
+            for (org.bukkit.Chunk c : w.getLoadedChunks()) trackChunk(c);
+        }
+        every(20L, this::tick);
     }
 
     @Override
     protected void onDisable() {
         types.clear();
         byMust.clear();
+        tracked.clear();
         drunk.clear();
         drunkAt.clear();
     }
@@ -112,6 +116,12 @@ public final class WineModule extends AbstractModule {
     /** Ids of every wine type (for admin give + tab completion). */
     public List<String> ids() {
         return new ArrayList<>(types.keySet());
+    }
+
+    /** Id of the must (cooking recipe) a wine type ferments from, or null. */
+    public String mustOf(String wineId) {
+        WineType t = types.get(wineId);
+        return t == null ? null : t.from();
     }
 
     public ItemStack createWine(String id) {
@@ -135,55 +145,129 @@ public final class WineModule extends AbstractModule {
     // --------------------------------------------------------------- barrel
 
     /*
-     * Barrels behave fully like vanilla barrels - no controlled right-clicking.
-     * Just open one and put must bottles inside. The plugin scans the barrel
-     * (on close + while it stays open + on interact) and, once ferment-ticks
-     * have passed, converts the must bottles into wine bottles right in place.
+     * Barrels are plain vanilla barrels - no special right-click. Open one and put must bottles
+     * inside. The timer starts the instant the bottles land in the barrel (click/drag/shift-click
+     * are all detected), is shown live on the action bar while the barrel is open, and keeps running
+     * while it is closed: fermenting barrels are tracked and converted in place once ferment-ticks
+     * have passed, as long as their chunk is loaded.
      */
 
-    /** Reports the timer when the player opens a barrel with must inside. */
+    private final java.util.Set<String> tracked = new java.util.HashSet<>();
+    private int tickCounter = 0;
+
+    private static String keyOf(org.bukkit.block.Block b) {
+        return b.getWorld().getName() + ";" + b.getX() + ";" + b.getY() + ";" + b.getZ();
+    }
+
+    private org.bukkit.block.Block blockOf(String key) {
+        String[] p = key.split(";");
+        org.bukkit.World w = Bukkit.getWorld(p[0]);
+        if (w == null) return null;
+        int x = Integer.parseInt(p[1]), y = Integer.parseInt(p[2]), z = Integer.parseInt(p[3]);
+        if (!w.isChunkLoaded(x >> 4, z >> 4)) return null;
+        return w.getBlockAt(x, y, z);
+    }
+
+    private void trackChunk(org.bukkit.Chunk c) {
+        for (org.bukkit.block.BlockState st : c.getTileEntities()) {
+            if (st instanceof Barrel b && b.getPersistentDataContainer().has(startKey, PersistentDataType.LONG)) {
+                tracked.add(keyOf(b.getBlock()));
+            }
+        }
+    }
+
+    @EventHandler
+    public void onChunkLoad(org.bukkit.event.world.ChunkLoadEvent e) {
+        trackChunk(e.getChunk());
+    }
+
+    /** Opening a barrel brings its state up to date, then shows the live timer. */
     @EventHandler
     public void onBarrelOpen(org.bukkit.event.inventory.InventoryOpenEvent e) {
         if (!(e.getPlayer() instanceof Player p)) return;
         if (!(e.getInventory().getHolder() instanceof Barrel barrel)) return;
-        if (!(barrel.getBlock().getType() == Material.BARREL) || !plugin.worldAllowed(barrel.getWorld())) return;
-
-        long ferment = plugin.getConfig().getLong("wine.ferment-ticks", 12000L);
-        long start = barrel.getPersistentDataContainer().getOrDefault(startKey, PersistentDataType.LONG, -1L);
-        if (start < 0) return;   // not fermenting yet (scan sets it)
-        WineType t = types.get(barrel.getPersistentDataContainer().get(typeKey, PersistentDataType.STRING));
-        if (t == null) return;
-        int count = countMust(barrel);
-        if (count == 0) return;
-        long left = ferment - (barrel.getWorld().getGameTime() - start);
-        if (left <= 0) {
-            p.sendActionBar(mm("<green>" + t.name() + "<green> is ready!"));
-        } else {
-            long minutes = (left + 1199) / 1200;
-            p.sendActionBar(mm("<gold>" + count + "x " + t.name() + "<gold> - about " + minutes + " min left."));
-        }
+        if (barrel.getBlock().getType() != Material.BARREL || !plugin.worldAllowed(barrel.getWorld())) return;
+        scan(barrel);
+        showTimer(p, barrel);
     }
 
     @EventHandler
     public void onClose(org.bukkit.event.inventory.InventoryCloseEvent e) {
         if (!(e.getInventory().getHolder() instanceof Barrel barrel)) return;
         if (barrel.getBlock().getType() != Material.BARREL) return;
-        scan(barrel, false);
+        scan(barrel);
     }
 
-    /** Keeps barrels that players leave open ticking along. */
-    private void scanOpenBarrels() {
+    /** Bottles moved in or out of an open barrel: re-scan next tick so the timer starts right away. */
+    @EventHandler
+    public void onBarrelClick(org.bukkit.event.inventory.InventoryClickEvent e) {
+        scanSoon(e.getView().getTopInventory());
+    }
+
+    @EventHandler
+    public void onBarrelDrag(org.bukkit.event.inventory.InventoryDragEvent e) {
+        scanSoon(e.getView().getTopInventory());
+    }
+
+    private void scanSoon(org.bukkit.inventory.Inventory top) {
+        if (top.getType() != org.bukkit.event.inventory.InventoryType.BARREL) return;
+        if (!(top.getHolder() instanceof Barrel holder)) return;
+        org.bukkit.block.Block block = holder.getBlock();
+        if (!plugin.worldAllowed(block.getWorld())) return;
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (block.getType() == Material.BARREL && block.getState() instanceof Barrel fresh) scan(fresh);
+        });
+    }
+
+    /** Once a second: live timer for everyone looking into a barrel; every 5s: closed tracked barrels. */
+    private void tick() {
+        tickCounter++;
         for (Player p : Bukkit.getOnlinePlayers()) {
             org.bukkit.inventory.Inventory top = p.getOpenInventory().getTopInventory();
             if (top.getType() != org.bukkit.event.inventory.InventoryType.BARREL) continue;
-            if (top.getHolder() instanceof Barrel barrel && barrel.getBlock().getType() == Material.BARREL) {
-                scan(barrel, false);
+            if (top.getHolder() instanceof Barrel barrel && barrel.getBlock().getType() == Material.BARREL
+                    && plugin.worldAllowed(barrel.getWorld())) {
+                scan(barrel);
+                showTimer(p, barrel);
+            }
+        }
+        if (tickCounter % 5 != 0) return;
+        for (String key : new ArrayList<>(tracked)) {
+            org.bukkit.block.Block b = blockOf(key);
+            if (b == null) continue;                       // chunk not loaded: keep tracking, skip for now
+            if (b.getType() != Material.BARREL || !(b.getState() instanceof Barrel barrel)) {
+                tracked.remove(key);
+                continue;
+            }
+            scan(barrel);
+            if (barrel.getPersistentDataContainer().has(startKey, PersistentDataType.LONG)) {
+                b.getWorld().spawnParticle(org.bukkit.Particle.COMPOSTER, b.getLocation().add(0.5, 1.05, 0.5), 2, 0.2, 0.05, 0.2, 0);
+            } else {
+                tracked.remove(key);
             }
         }
     }
 
+    /** Action bar line: progress bar, percent and time left (or "ready"). */
+    private void showTimer(Player p, Barrel barrel) {
+        PersistentDataContainer pdc = barrel.getPersistentDataContainer();
+        long start = pdc.getOrDefault(startKey, PersistentDataType.LONG, -1L);
+        WineType t = types.get(pdc.get(typeKey, PersistentDataType.STRING));
+        int count = countMust(barrel);
+        if (start < 0 || t == null || count == 0) return;
+        long ferment = Math.max(1L, plugin.getConfig().getLong("wine.ferment-ticks", 12000L));
+        long elapsed = Math.max(0L, barrel.getWorld().getGameTime() - start);
+        double frac = Math.min(1.0, (double) elapsed / ferment);
+        int filled = (int) Math.round(frac * 12);
+        String bar = "<gold>" + "\u25AE".repeat(filled) + "<dark_gray>" + "\u25AE".repeat(12 - filled);
+        long leftSec = Math.max(0L, (ferment - elapsed) / 20L);
+        String time = String.format("%d:%02d", leftSec / 60, leftSec % 60);
+        p.sendActionBar(mm("<light_purple>" + count + "x " + t.name() + " <gray>" + bar
+                + " <white>" + (int) Math.round(frac * 100) + "% <gray>- <yellow>" + time + " left"));
+    }
+
     /** One scan: refresh the ferment state of a barrel, converting must bottles when ready. */
-    private void scan(Barrel barrel, boolean quiet) {
+    private void scan(Barrel barrel) {
         org.bukkit.inventory.Inventory inv = barrel.getInventory();
         PersistentDataContainer pdc = barrel.getPersistentDataContainer();
         String stored = pdc.get(typeKey, PersistentDataType.STRING);
@@ -202,62 +286,61 @@ public final class WineModule extends AbstractModule {
             count += it.getAmount();
         }
 
+        String key = keyOf(barrel.getBlock());
         if (count == 0) {
             if (stored != null || start >= 0) {
                 pdc.remove(typeKey);
                 pdc.remove(startKey);
                 barrel.update();
             }
+            tracked.remove(key);
             return;
         }
 
-        if (stored == null || !stored.equals(found.id())) {
-            // a new batch of must was put in - timer starts now
+        if (stored == null || start < 0 || !stored.equals(found.id())) {
+            // a new batch of must was put in - the timer starts now
             pdc.set(typeKey, PersistentDataType.STRING, found.id());
             pdc.set(startKey, PersistentDataType.LONG, barrel.getWorld().getGameTime());
             barrel.update();
+            tracked.add(key);
             return;
         }
+        tracked.add(key);
 
         long ferment = plugin.getConfig().getLong("wine.ferment-ticks", 12000L);
         long elapsed = barrel.getWorld().getGameTime() - start;
-        if (elapsed >= ferment) {
-            // ready: turn every must bottle into wine, right where it sits
-            ItemStack[] contents = inv.getContents();
-            int converted = 0;
-            for (int i = 0; i < contents.length; i++) {
-                ItemStack it = contents[i];
-                if (it == null || !it.hasItemMeta()) continue;
-                String mid = it.getItemMeta().getPersistentDataContainer().get(mealKey, PersistentDataType.STRING);
-                WineType wt = mid == null ? null : byMust.get(mid);
-                if (wt == null) continue;
-                ItemStack wine = createWine(wt.id());
-                wine.setAmount(it.getAmount());
-                contents[i] = wine;
-                converted += it.getAmount();
+        if (elapsed < ferment) return;
+
+        // ready: turn every must bottle into wine, right where it sits
+        ItemStack[] contents = inv.getContents();
+        int converted = 0;
+        for (int i = 0; i < contents.length; i++) {
+            ItemStack it = contents[i];
+            if (it == null || !it.hasItemMeta()) continue;
+            String mid = it.getItemMeta().getPersistentDataContainer().get(mealKey, PersistentDataType.STRING);
+            WineType wt = mid == null ? null : byMust.get(mid);
+            if (wt == null) continue;
+            ItemStack wine = createWine(wt.id());
+            wine.setAmount(it.getAmount());
+            contents[i] = wine;
+            converted += it.getAmount();
+        }
+        if (converted == 0) return;
+        inv.setContents(contents);
+        pdc.remove(typeKey);
+        pdc.remove(startKey);
+        barrel.update();
+        tracked.remove(key);
+        barrel.getWorld().playSound(barrel.getLocation(), Sound.BLOCK_BREWING_STAND_BREW, 0.8f, 1.2f);
+        Player nearest = null;
+        for (Player p : barrel.getWorld().getPlayers()) {
+            if (p.getLocation().distanceSquared(barrel.getLocation()) < 256) {
+                p.sendActionBar(mm("<green>The wine has finished fermenting."));
+                if (nearest == null) nearest = p;
             }
-            if (converted > 0) {
-                inv.setContents(contents);
-                pdc.remove(typeKey);
-                pdc.remove(startKey);
-                barrel.update();
-                barrel.getWorld().playSound(barrel.getLocation(), Sound.BLOCK_BREWING_STAND_BREW, 0.8f, 1.2f);
-                for (Player p : barrel.getWorld().getPlayers()) {
-                    if (p.getWorld().equals(barrel.getWorld()) && p.getLocation().distanceSquared(barrel.getLocation()) < 256) {
-                        p.sendActionBar(mm("<green>The wine has finished fermenting."));
-                    }
-                }
-                if (plugin.quests() != null) {
-                    for (Player p : barrel.getWorld().getPlayers()) {
-                        if (p.getWorld().equals(barrel.getWorld())) {
-                            plugin.quests().progress(p, "BREW", found.id(), converted);
-                            break;
-                        }
-                    }
-                }
-            }
-        } else {
-            barrel.update();   // persist nothing new, just in case the state object is dirty
+        }
+        if (nearest != null && plugin.quests() != null) {
+            plugin.quests().progress(nearest, "BREW", found.id(), converted);
         }
     }
 

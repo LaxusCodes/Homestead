@@ -10,6 +10,8 @@ crafting:
   # Override any of them (or add extra recipes) here; key = recipe name, and add
   # "result" to target something else: decor:<id>, backpack, backpack:<skin>, golden_leaf.
   auto-decor: true    # auto-register the default furniture/golden leaf recipes
+  auto-meals: true    # every cooked meal and must can also be made at a crafting table (1 serving; the pot makes several)
+  auto-wine: true     # wine can be crafted from 3 must bottles (a costly shortcut around the barrel)
   recipes:
     oak_chair:
       shape: ["WW", "SS"]
@@ -30,10 +32,18 @@ hud:
   enabled: true    # action bar: thirst, season, temperature
   style: icons     # icons (needs the resource pack) or text
   labels: false    # also show the season/temperature words next to the icons
-  # Pixel anchors for the icon HUD (regenerate the pack after changing these:
-  #   python tools/make_assets.py <pack-folder> src/main/resources/config.yml)
-  thirst-left: 3   # px from screen centre to the left edge of the thirst bar (sits above hunger)
-  temp-right: 150  # px from screen centre to the right edge of the temperature bar (right corner)
+  # Layout (icons style). Everything is relative to the action bar line, which is anchored to the
+  # bottom of the screen, so it looks the same at every GUI scale.
+  #   thirst bar  = exactly the hunger bar's width, in the row directly ABOVE the hunger icons
+  #   temperature + season = same row, on the right (towards the screen corner)
+  # Vertical offsets are "ascent" values baked into the pack font: -16 = the row above hunger.
+  # Changing them needs a pack rebuild:
+  #   python tools/make_assets.py <pack-folder> src/main/resources/config.yml
+  thirst-ascent: -16
+  temp-ascent: -16
+  # px from the screen centre to the RIGHT edge of the temperature bar. Raise it to push the
+  # temperature + season icons further towards the right corner (minimum 140).
+  temp-right: 140
 
 seasons:
   days-per-season: 7   # in-game days (a day = 20 real minutes). Day 0 = start of Spring
@@ -243,7 +253,8 @@ cooking:
 
 wine:
   # 1) cook a must in the pot  2) open a barrel and put must bottles inside  3) wait
-  # The timer starts when the bottles are placed in and shows on the action bar every time the barrel is opened.
+  # The timer starts the moment the bottles land in the barrel and counts down live on the action bar
+  # (progress bar, percent, time left) while the barrel is open. It keeps running when you close it.
   # When time is up, the bottles turn into wine right inside the barrel. No special right-click storing.
   ferment-ticks: 12000    # 20 ticks = 1 second. 12000 = 10 minutes (server running time)
   types:
@@ -473,7 +484,7 @@ backpack:
   back:             # tune if the worn backpack floats or sinks into the player
     scale: 1.0
     x: 0.0
-    y: -0.65        # up/down (negative = lower)
+    y: -0.80        # up/down (negative = lower); -0.80 sits the pack on the torso, clear of the head
     z: 0.27         # distance behind the body (negative = in front)
   skin-dyes:
     BROWN_DYE: classic

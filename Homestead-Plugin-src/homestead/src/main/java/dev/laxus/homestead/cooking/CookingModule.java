@@ -196,6 +196,16 @@ public final class CookingModule extends AbstractModule {
         return it;
     }
 
+    public Recipe recipeOf(String id) {
+        return recipes.get(id);
+    }
+
+    /** The cooking-recipe id stored on a meal / must item, or null if it isn't one. */
+    public String mealIdOf(ItemStack it) {
+        if (it == null || !it.hasItemMeta()) return null;
+        return it.getItemMeta().getPersistentDataContainer().get(mealKey, PersistentDataType.STRING);
+    }
+
     /** Ids of every cooking recipe (for admin give + tab completion). */
     public List<String> recipeIds() {
         return new ArrayList<>(recipes.keySet());

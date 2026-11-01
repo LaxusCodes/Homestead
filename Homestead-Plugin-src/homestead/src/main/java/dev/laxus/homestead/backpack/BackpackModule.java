@@ -272,7 +272,7 @@ public final class BackpackModule extends AbstractModule {
 
     private ItemDisplay spawnWorn(Player p) {
         double x = plugin.getConfig().getDouble("backpack.back.x", 0.0);
-        double y = plugin.getConfig().getDouble("backpack.back.y", -0.65);
+        double y = plugin.getConfig().getDouble("backpack.back.y", -0.80);
         double z = plugin.getConfig().getDouble("backpack.back.z", 0.27);
         float sc = (float) plugin.getConfig().getDouble("backpack.back.scale", 1.0);
         ItemDisplay d = p.getWorld().spawn(p.getLocation(), ItemDisplay.class, disp -> {

@@ -23,6 +23,11 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      - name: Verify resource pack (legacy + 1.21.4+ definitions, HUD font)
+        run: |
+          pip install pillow pyyaml numpy
+          python Homestead-Plugin-src/homestead/tools/verify_pack.py Realism-ResourcePack-Homestead-v6 Homestead-Plugin-src/homestead/src/main/resources/config.yml
+
       - name: Build with Maven
         working-directory: Homestead-Plugin-src/homestead
         run: mvn -B clean package

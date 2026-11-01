@@ -170,17 +170,26 @@ public final class BackpackModule extends AbstractModule {
                 ConfigurationSection s = sec.getConfigurationSection(id);
                 if (s == null) continue;
                 Material base = Material.matchMaterial(s.getString("base", baseMaterial().name()));
-                skins.put(id, new Skin(id, s.getString("name", "<gold>Backpack"),
-                        base == null ? baseMaterial() : base, s.getInt("cmd", 0)));
+                if (base == null) base = baseMaterial();
+                if (base == Material.LEATHER) base = baseMaterial();   // legacy per-skin value, can't be worn
+                skins.put(id, new Skin(id, s.getString("name", "<gold>Backpack"), base, s.getInt("cmd", 0)));
             }
         }
         if (skins.isEmpty()) skins.put("classic", new Skin("classic", "<gold>Backpack", baseMaterial(), 0));
         plugin.getLogger().info("Loaded " + skins.size() + " backpack skin(s).");
     }
 
+    /** The chestplate item backpack skins sit on. Old configs default to plain LEATHER, which can't be worn. */
     private Material baseMaterial() {
-        Material m = Material.matchMaterial(plugin.getConfig().getString("backpack.base", "CHAINMAIL_CHESTPLATE"));
-        return m == null ? Material.CHAINMAIL_CHESTPLATE : m;
+        Material m = Material.matchMaterial(
+                plugin.getConfig().getString("backpack.base", Material.CHAINMAIL_CHESTPLATE.name()));
+        if (m == null) m = Material.CHAINMAIL_CHESTPLATE;
+        if (m == Material.LEATHER) {
+            // legacy value from the pre-chestplate versions: silent-broken as a wearable, upgrade it
+            plugin.getLogger().info("backpack.base: LEATHER is legacy (leather can't be worn); using CHAINMAIL_CHESTPLATE.");
+            m = Material.CHAINMAIL_CHESTPLATE;
+        }
+        return m;
     }
 
     private String defaultSkin() {

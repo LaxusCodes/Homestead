@@ -52,7 +52,9 @@ seasons:
 
 thirst:
   enabled: true
-  drain-per-minute: 1.0     # out of 20 - a full bar empties to 0 in 20 minutes. Sprinting x2.5, hot biomes x2
+  drain-per-minute: 1.0     # out of 20 - a full bar lasts 20 minutes of normal play. Old 1.2 configs are auto-upgraded.
+  sprint-multiplier: 1.2    # sprinting drains a bit faster (1 or less = no extra drain)
+  heat-multiplier: 1.25     # extra drain while the temperature bar reads Hot - deserts no longer dry you out in minutes (1 or less = off)
   water-bottle: 6.0         # an unboiled (vanilla) water bottle; risk of poison, see below
   water-source: 2.0         # sneak + right-click on water with an empty hand
   dirty-water-chance: 0.35  # chance that unboiled water (straight from the source OR a vanilla water

@@ -144,9 +144,9 @@ public final class SurvivalModule extends AbstractModule {
             double temp = effectiveTemp(p);
 
             if (thirstOn) {
-                double perSec = c.getDouble("thirst.drain-per-minute", 1.2) / 60.0;
-                if (p.isSprinting()) perSec *= 2.5;
-                if (temp > hotAbove) perSec *= 2.0;
+                double perSec = drainPerMinute() / 60.0;
+                if (p.isSprinting()) perSec *= Math.max(1.0, c.getDouble("thirst.sprint-multiplier", 1.2));
+                if (temp > hotAbove) perSec *= Math.max(1.0, c.getDouble("thirst.heat-multiplier", 1.25));
                 double t = Math.max(0.0, thirst(p) - perSec);
                 thirst.put(p.getUniqueId(), t);
                 if (t <= 0.0 && tick % 4 == 0 && p.getHealth() > 2.0) {
@@ -167,6 +167,16 @@ public final class SurvivalModule extends AbstractModule {
                 p.sendActionBar(mm(hudText(p, w, temp, coldBelow, hotAbove)));
             }
         }
+    }
+
+    /** Full bar lasts 100/drainPerMinute minutes: 1.0/min = 20 minutes. Legacy configs shipped 1.2. */
+    private double drainPerMinute() {
+        double v = plugin.getConfig().getDouble("thirst.drain-per-minute", 1.0);
+        if (v == 1.2) {   // pre-rebalance shipped default: drained a full bar 20% too fast
+            plugin.getLogger().info("thirst.drain-per-minute: 1.2 is legacy; using 1.0 (a full bar lasts 20 minutes).");
+            v = 1.0;
+        }
+        return v;
     }
 
     private String hudText(Player p, World w, double temp, double coldBelow, double hotAbove) {

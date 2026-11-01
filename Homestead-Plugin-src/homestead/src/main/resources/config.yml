@@ -492,6 +492,8 @@ decor:
 backpack:
   # A backpack is a textured CHESTPLATE (default base: chainmail; the vanilla armour bonus is wiped
   # so it protects nothing). One item = one unique id; its contents live inside the item.
+  # The pack's transparent chainmail equipment texture hides the gray body layer while worn -
+  # real chainmail chestplates/helmets are invisible to pack users too (see README).
   # Recipe: leather x7 + string + chest (shape LSL / LCL / LLL).
   # Re-skin: put a backpack + a dye in the crafting grid (contents are kept).
   # Wearing the pack in the chest slot shows its 3D model on your back; you never see it yourself

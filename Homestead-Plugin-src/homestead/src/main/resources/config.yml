@@ -499,7 +499,12 @@ backpack:
   base: CHAINMAIL_CHESTPLATE
   default-skin: classic
   show-on-back: true
-  hide-from-self: true    # the wearer never sees their own pack; set false to let them see it (F5 too)
+  hide-from-self: false   # true = the wearer NEVER sees their own pack (any camera). Default false: the
+                          # pack shows in F5/back view, and the pitch limit below handles steep first-person looks
+  hide-when-looking-down: 60  # degrees of downward pitch past which the wearer stops seeing their own pack
+                          # (first person looking down, F5 too). 0 accepts the plugin default of 60;
+                          # a negative number turns this off so the pack is visible to the wearer always.
+                          # Other players always see your pack either way.
   back:             # tune if the worn backpack floats or sinks into the player
     scale: 0.9
     x: 0.0

@@ -255,7 +255,10 @@ public final class BackpackModule extends AbstractModule {
 
     private void updateWorn() {
         boolean show = plugin.getConfig().getBoolean("backpack.show-on-back", true);
-        boolean hideSelf = plugin.getConfig().getBoolean("backpack.hide-from-self", true);
+        boolean alwaysHideSelf = plugin.getConfig().getBoolean("backpack.hide-from-self", false);
+        double lookDownLimit = plugin.getConfig().getDouble("backpack.hide-when-looking-down", 60.0);
+        if (lookDownLimit == 0.0) lookDownLimit = 60.0;  // legacy configs shipped 0 (= old default = off)
+        boolean lookDownOff = lookDownLimit < 0;
         for (Player p : Bukkit.getOnlinePlayers()) {
             UUID id = p.getUniqueId();
             ItemStack bp = show ? chestPack(p) : null;
@@ -284,8 +287,11 @@ public final class BackpackModule extends AbstractModule {
             }
             d.setRotation(updateBodyYaw(p), 0f);
 
-            // Looking down in first person would put the pack across the screen, so keep it invisible
-            // to the wearer entirely (that includes F5's third person). Other players still see it.
+            // The wearer sees their own pack on their back (F5). In first person a steeply pitched
+            // camera would put the pack across the screen, so it is dropped past the pitch limit.
+            // backpack.hide-from-self: true hides it from the wearer in every camera instead.
+            boolean hideSelf = alwaysHideSelf
+                    || (!lookDownOff && p.getLocation().getPitch() > (float) lookDownLimit);
             if (hideSelf) {
                 if (p.canSee(d)) p.hideEntity(plugin, d);
             } else if (!p.canSee(d)) {

@@ -2,6 +2,7 @@ package dev.laxus.homestead.quests;
 
 import dev.laxus.homestead.AbstractModule;
 import dev.laxus.homestead.HomesteadPlugin;
+import dev.laxus.homestead.db.Sqlite;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -22,7 +23,6 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -51,8 +51,6 @@ public final class QuestModule extends AbstractModule {
 
     private final Map<String, Quest> quests = new LinkedHashMap<>();
     private final Map<UUID, PlayerData> data = new HashMap<>();
-    private File dataFile;
-    private boolean dirty;
 
     public QuestModule(HomesteadPlugin plugin) {
         super(plugin);
@@ -62,14 +60,10 @@ public final class QuestModule extends AbstractModule {
     protected void onEnable() {
         loadQuests();
         loadData();
-        every(6000L, () -> {
-            if (dirty) save();
-        });
     }
 
     @Override
     protected void onDisable() {
-        save();
         quests.clear();
         data.clear();
     }
@@ -92,43 +86,14 @@ public final class QuestModule extends AbstractModule {
         plugin.getLogger().info("Loaded " + quests.size() + " quest(s).");
     }
 
+    /** Player progress lives in SQLite (legacy quest-data.yml files are imported there automatically). */
     private void loadData() {
-        dataFile = new File(plugin.getDataFolder(), "quest-data.yml");
-        YamlConfiguration y = YamlConfiguration.loadConfiguration(dataFile);
-        ConfigurationSection ps = y.getConfigurationSection("players");
-        if (ps == null) return;
-        for (String key : ps.getKeys(false)) {
-            UUID id;
-            try {
-                id = UUID.fromString(key);
-            } catch (IllegalArgumentException ex) {
-                continue;
-            }
-            PlayerData d = new PlayerData();
-            d.done.addAll(ps.getStringList(key + ".done"));
-            ConfigurationSection pr = ps.getConfigurationSection(key + ".progress");
-            if (pr != null) {
-                for (String q : pr.getKeys(false)) d.progress.put(q, pr.getInt(q));
-            }
-            data.put(id, d);
+        for (Sqlite.QuestRow row : plugin.db().loadQuests()) {
+            PlayerData d = data.computeIfAbsent(row.uuid(), k -> new PlayerData());
+            if (row.done()) d.done.add(row.quest());
+            else if (row.progress() > 0) d.progress.put(row.quest(), row.progress());
         }
-    }
-
-    private void save() {
-        YamlConfiguration y = new YamlConfiguration();
-        for (Map.Entry<UUID, PlayerData> en : data.entrySet()) {
-            String base = "players." + en.getKey();
-            y.set(base + ".done", new ArrayList<>(en.getValue().done));
-            for (Map.Entry<String, Integer> pe : en.getValue().progress.entrySet()) {
-                y.set(base + ".progress." + pe.getKey(), pe.getValue());
-            }
-        }
-        try {
-            y.save(dataFile);
-            dirty = false;
-        } catch (IOException ex) {
-            plugin.getLogger().warning("Could not save quest data: " + ex.getMessage());
-        }
+        plugin.getLogger().info("Loaded quest progress for " + data.size() + " player(s).");
     }
 
     private PlayerData data(Player p) {
@@ -149,7 +114,7 @@ public final class QuestModule extends AbstractModule {
             if (!matches(q.target(), target)) continue;
 
             int now = d.progress.merge(q.id(), amount, Integer::sum);
-            dirty = true;
+            plugin.db().upsertQuest(p.getUniqueId(), q.id(), now, false);
             if (now >= q.amount()) {
                 complete(p, d, q);
             } else {
@@ -167,7 +132,7 @@ public final class QuestModule extends AbstractModule {
     private void complete(Player p, PlayerData d, Quest q) {
         d.done.add(q.id());
         d.progress.remove(q.id());
-        dirty = true;
+        plugin.db().upsertQuest(p.getUniqueId(), q.id(), 0, true);
 
         p.sendMessage(mm("<gold>★ Quest complete: <yellow>" + q.name()));
         p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
@@ -297,6 +262,6 @@ public final class QuestModule extends AbstractModule {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
-        if (dirty) save();
+        // progress is written through to SQLite as it changes, nothing to flush on quit
     }
 }

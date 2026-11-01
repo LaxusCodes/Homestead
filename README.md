@@ -38,6 +38,7 @@ mvn clean package
   resource-pack=<url>
   resource-pack-sha1=<sha1 of the zip>
   ```
+- Everything that needs saving lives in one SQLite file: `plugins/Homestead/data/homestead.db` (quest progress, cooking pots; furniture/wine/backpack contents persist inside their entities and items). An old `quest-data.yml` is imported automatically.
 
 ## Resource pack regeneration
 Only needed if you change `cmd`/`model`/HUD values in `config.yml`:

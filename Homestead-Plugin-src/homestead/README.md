@@ -69,6 +69,12 @@ python tools/verify_pack.py <unzipped pack folder> src/main/resources/config.yml
 ```
 Then re-zip the pack (pack.mcmeta must be at the zip root) and update the SHA-1 in server.properties.
 
+## Storage - SQLite
+All plugin state lives in one SQLite file: `plugins/Homestead/data/homestead.db` (Paper bundles the SQLite driver, no extra dependency).
+- **Quest progress** (per player). An old `quest-data.yml` is imported automatically on first start and renamed `.imported`.
+- **Cooking pots**: contents, cooking state and servings survive `/reload` and server restarts; a pot that was physically removed while the server was off is cleaned up. Half-finished cooking timers resume from the stored finish time.
+- Furniture, wine barrels and backpack contents are not in the database on purpose: they belong to entities, block states and item NBT, which persist on their own.
+
 ## Backpack on your back
 The worn model is an ItemDisplay riding the player (defaults `y: -0.80`, `z: -0.27` sit it on the torso, clear of the head). If it floats, sinks or sits in front of you, change `backpack.back.y` / `z` / `scale` in config.yml and run `/homestead reload`.
 Set `backpack.show-on-back: false` to turn the worn model off. By default the wearer sees their own pack on the back (F5/back view) and other players always see it; `backpack.hide-when-looking-down: 60` hides the pack from its owner past 60 degrees of downward pitch so it never fills first person (0 = use the built-in 60, negative = off), and `backpack.hide-from-self: true` hides the pack from its owner in every camera instead.

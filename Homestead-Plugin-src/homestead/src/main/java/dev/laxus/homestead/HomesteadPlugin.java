@@ -4,6 +4,7 @@ import dev.laxus.homestead.artifacts.ArtifactModule;
 import dev.laxus.homestead.backpack.BackpackModule;
 import dev.laxus.homestead.cooking.CookingModule;
 import dev.laxus.homestead.crafting.CraftingModule;
+import dev.laxus.homestead.db.Sqlite;
 import dev.laxus.homestead.decor.DecorModule;
 import dev.laxus.homestead.farming.FarmingModule;
 import dev.laxus.homestead.quests.QuestModule;
@@ -35,6 +36,12 @@ public final class HomesteadPlugin extends JavaPlugin {
     private ArtifactModule artifacts;
     private CraftingModule crafting;
     private HomesteadMenus menus;
+    private Sqlite db;
+
+    /** SQLite store (quest progress, cooking pots). All data files move here. */
+    public Sqlite db() {
+        return db;
+    }
 
     @Override
     public void onEnable() {
@@ -42,6 +49,7 @@ public final class HomesteadPlugin extends JavaPlugin {
         if (!new File(getDataFolder(), "quests.yml").exists()) {
             saveResource("quests.yml", false);
         }
+        db = new Sqlite(this);
         startModules();
 
         HomesteadCommand cmd = new HomesteadCommand(this);
@@ -58,10 +66,15 @@ public final class HomesteadPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         stopModules();
+        if (db != null) {
+            db.close();   // waits for the queued module shutdown writes, then frees the file
+            db = null;
+        }
     }
 
     public void reload() {
         stopModules();
+        if (db != null) db.flush();   // queued module shutdown writes must land before the re-read
         reloadConfig();
         startModules();
     }

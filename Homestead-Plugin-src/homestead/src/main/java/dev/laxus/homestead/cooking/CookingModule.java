@@ -2,6 +2,7 @@ package dev.laxus.homestead.cooking;
 
 import dev.laxus.homestead.AbstractModule;
 import dev.laxus.homestead.HomesteadPlugin;
+import dev.laxus.homestead.db.Sqlite;
 import dev.laxus.homestead.survival.SurvivalModule;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
@@ -10,6 +11,7 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
+import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.type.Campfire;
@@ -63,6 +65,8 @@ public final class CookingModule extends AbstractModule {
         boolean cooking;
         Recipe ready;
         int servingsLeft;
+        long readyAt;        // epoch millis when the running cook finishes (transient + stored for restarts)
+        String pendingId;    // recipe id being cooked (has no result yet)
 
         Pot(Location loc) {
             this.loc = loc;
@@ -90,12 +94,14 @@ public final class CookingModule extends AbstractModule {
     @Override
     protected void onEnable() {
         loadRecipes();
+        loadPots();
         every(10L, this::simmer);
     }
 
     @Override
     protected void onDisable() {
-        for (Pot pot : pots.values()) dropContents(pot);
+        // pots survive /reload and server restarts in SQLite instead of spilling their contents
+        for (Pot pot : pots.values()) savePot(pot);
         pots.clear();
         recipes.clear();
         knownIngredients.clear();
@@ -281,6 +287,7 @@ public final class CookingModule extends AbstractModule {
         }
         if (p.getGameMode() != GameMode.CREATIVE) hand.setAmount(hand.getAmount() - 1);
         pot.contents.merge(hm, 1, Integer::sum);
+        savePot(pot);
         p.playSound(b.getLocation(), Sound.BLOCK_BREWING_STAND_BREW, 0.5f, 1.4f);
         p.sendActionBar(mm("<green>✚</green> " + nice(hm) + " <dark_gray>(" + pot.total() + "/" + MAX_ITEMS + ")"));
     }
@@ -316,15 +323,86 @@ public final class CookingModule extends AbstractModule {
         }
         final Recipe recipe = match;
         pot.cooking = true;
+        pot.pendingId = recipe.id();
+        pot.readyAt = System.currentTimeMillis() + recipe.seconds() * 1000L;
+        savePot(pot);
         p.playSound(b.getLocation(), Sound.ITEM_BUCKET_FILL, 0.6f, 0.8f);
         p.sendActionBar(mm("<gold>⌛</gold> <gold>Cooking " + recipe.name() + "...</gold>"));
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            if (!pots.containsValue(pot)) return;
-            pot.cooking = false;
+        Bukkit.getScheduler().runTaskLater(plugin, () -> finishCooking(pot, recipe), recipe.seconds() * 20L);
+    }
+
+    /** The cook timer ran out (fresh start or restored from SQLite): the recipe is ready to be served. */
+    private void finishCooking(Pot pot, Recipe recipe) {
+        if (!pots.containsValue(pot) || !pot.cooking) return;
+        pot.cooking = false;
+        pot.pendingId = null;
+        pot.ready = recipe;
+        pot.servingsLeft = recipe.servings();
+        pot.loc.getWorld().playSound(pot.loc, Sound.BLOCK_BREWING_STAND_BREW, 1f, 0.7f);
+        savePot(pot);
+    }
+
+    // ----------------------------------------------------------- pot storage
+
+    private void savePot(Pot pot) {
+        StringBuilder csv = new StringBuilder();
+        for (Map.Entry<Material, Integer> en : pot.contents.entrySet()) {
+            if (csv.length() > 0) csv.append(';');
+            csv.append(en.getKey().name()).append(':').append(en.getValue());
+        }
+        String readyId = pot.cooking
+                ? (pot.pendingId != null ? pot.pendingId : "")
+                : (pot.ready != null ? pot.ready.id() : "");
+        long readyAt = pot.cooking ? pot.readyAt : 0L;
+        plugin.db().savePot(new Sqlite.PotRow(pot.loc.getWorld().getUID(), pot.loc.getBlockX(),
+                pot.loc.getBlockY(), pot.loc.getBlockZ(), csv.toString(), pot.cooking, readyAt, readyId, pot.servingsLeft));
+    }
+
+    /** Restores pots saved before a restart; rows for pots that were removed are dropped. */
+    private void loadPots() {
+        int loaded = 0;
+        for (Sqlite.PotRow row : plugin.db().loadPots()) {
+            World w = Bukkit.getWorld(row.world());
+            if (w == null) continue;   // world not loaded yet: the row waits for a later start
+            Block b = w.getBlockAt(row.x(), row.y(), row.z());
+            if (!isPot(b)) {
+                plugin.db().deletePot(row);   // the pot was gone while the server was off
+                continue;
+            }
+            Pot pot = new Pot(b.getLocation());
+            for (String part : row.contents().split(";")) {
+                String[] kv = part.split(":");
+                Material m = kv.length == 2 ? Material.matchMaterial(kv[0]) : null;
+                if (m == null) continue;
+                try {
+                    pot.contents.put(m, Integer.parseInt(kv[1]));
+                } catch (NumberFormatException ignored) {
+                }
+            }
+            pot.cooking = row.cooking();
+            pot.servingsLeft = row.servings();
+            pot.readyAt = row.readyAt();
+            pot.pendingId = pot.cooking ? row.readyId() : null;
+            Recipe recipe = pot.cooking ? null : recipes.get(row.readyId());
             pot.ready = recipe;
-            pot.servingsLeft = recipe.servings();
-            pot.loc.getWorld().playSound(pot.loc, Sound.BLOCK_BREWING_STAND_BREW, 1f, 0.7f);
-        }, recipe.seconds() * 20L);
+            if (!pot.cooking && recipe == null) pot.servingsLeft = 0;   // recipe was removed from the config
+            pots.put(new PotKey(row.world(), b.getBlockKey()), pot);
+            if (pot.cooking) {
+                long delayTicks = Math.max(1, (pot.readyAt - System.currentTimeMillis()) / 50L);
+                Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    Recipe reopen = recipes.get(pot.pendingId);
+                    if (reopen != null) {
+                        finishCooking(pot, reopen);
+                    } else {
+                        pot.cooking = false;
+                        pot.pendingId = null;
+                        savePot(pot);   // recipe vanished from the config: leave the contents, they can be re-stirred
+                    }
+                }, delayTicks);
+            }
+            loaded++;
+        }
+        if (loaded > 0) plugin.getLogger().info("Restored " + loaded + " cooking pot(s).");
     }
 
     private void serve(Player p, Pot pot, ItemStack hand) {
@@ -337,10 +415,13 @@ public final class CookingModule extends AbstractModule {
         }
         plugin.quest(p, "COOK", pot.ready.id());
         pot.servingsLeft--;
-        p.playSound(p.getLocation(), Sound.ENTITY_ITEM_PICKUP, 0.8f, 1.1f);
         if (pot.servingsLeft <= 0) {
             pot.ready = null;
             pot.contents.clear();
+        }
+        savePot(pot);
+        p.playSound(p.getLocation(), Sound.ENTITY_ITEM_PICKUP, 0.8f, 1.1f);
+        if (pot.servingsLeft <= 0) {
             p.sendActionBar(mm("<gray>♨ The pot is empty."));
         } else {
             p.sendActionBar(mm("<green>✔</green> <green>" + pot.servingsLeft + " serving(s) remaining.</green>"));
@@ -363,6 +444,8 @@ public final class CookingModule extends AbstractModule {
         if (b.getType() != Material.CAULDRON) return;
         Pot pot = pots.remove(key(b));
         if (pot != null) dropContents(pot);
+        plugin.db().deletePot(new Sqlite.PotRow(b.getWorld().getUID(), b.getX(), b.getY(), b.getZ(),
+                "", false, 0L, "", 0));   // the pot and its saved row are gone together
     }
 
     private void dropContents(Pot pot) {

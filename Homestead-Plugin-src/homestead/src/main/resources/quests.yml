@@ -163,3 +163,36 @@ quests:
     rewards:
       items: ["EMERALD:5"]
       xp: 80
+
+  grill_master:
+    name: "Grill Master"
+    description: "Grill 10 items on a lit Stove. Craft a Stove, feed it coal or wood, then right-click raw meat or fish."
+    type: GRILL
+    target: "*"
+    amount: 10
+    requires: [build_a_fire]
+    rewards:
+      items: ["COAL:16", "meal:herb_roast_chicken:1"]
+      xp: 40
+
+  a_place_for_everything:
+    name: "A Place for Everything"
+    description: "Open a cabinet, basket or bale 5 times. They really store things now."
+    type: STORE
+    target: "*"
+    amount: 5
+    requires: [make_it_cozy]
+    rewards:
+      items: ["BARREL:1", "LEATHER:6"]
+      xp: 30
+
+  chop_chop:
+    name: "Chop Chop"
+    description: "Chop 10 ingredients on a Cutting Board. Craft a Kitchen Knife (iron ingot over a stick) first."
+    type: CHOP
+    target: "*"
+    amount: 10
+    requires: [first_meal]
+    rewards:
+      items: ["meal:fish_and_chips:2", "IRON_INGOT:3"]
+      xp: 40

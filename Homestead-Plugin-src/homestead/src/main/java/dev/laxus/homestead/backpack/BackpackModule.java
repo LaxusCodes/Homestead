@@ -99,6 +99,9 @@ public final class BackpackModule extends AbstractModule {
     private final NamespacedKey dataKey;
     private final NamespacedKey skinKey;
     private final NamespacedKey recipeKey;
+    private final NamespacedKey tierKey;
+    private final Map<String, Integer> upgradeRecipes = new HashMap<>();   // recipe key -> tier it produces
+    private static final String UPGRADE_PREFIX = "backpack_upgrade_";
 
     public BackpackModule(HomesteadPlugin plugin) {
         super(plugin);
@@ -107,6 +110,7 @@ public final class BackpackModule extends AbstractModule {
         dataKey = new NamespacedKey(plugin, "backpack_data");
         skinKey = new NamespacedKey(plugin, "backpack_skin");
         recipeKey = new NamespacedKey(plugin, "backpack_recipe");
+        tierKey = new NamespacedKey(plugin, "backpack_tier");
     }
 
     // -------------------------------------------------------------- lifecycle
@@ -141,6 +145,23 @@ public final class BackpackModule extends AbstractModule {
                 dyeRecipes.put(k.getKey(), skin);
             }
         }
+        // capacity upgrades: backpack + N of a material -> one more row (iron, gold, diamond by default)
+        List<String> ups = plugin.getConfig().getStringList("backpack.upgrades.items");
+        int amount = Math.max(1, Math.min(8, plugin.getConfig().getInt("backpack.upgrades.amount", 4)));
+        for (int i = 0; i < ups.size() && baseRows() + i + 1 <= 6; i++) {
+            Material um = Material.matchMaterial(ups.get(i));
+            if (um == null) {
+                plugin.getLogger().warning("backpack.upgrades.items: unknown material '" + ups.get(i) + "'");
+                continue;
+            }
+            NamespacedKey k = new NamespacedKey(plugin, UPGRADE_PREFIX + (i + 1));
+            ShapelessRecipe ur = new ShapelessRecipe(k, createBackpack(defaultSkin()));
+            ur.addIngredient(new RecipeChoice.MaterialChoice(baseMaterial()));
+            for (int n = 0; n < amount; n++) ur.addIngredient(new RecipeChoice.MaterialChoice(um));
+            Bukkit.addRecipe(ur);
+            recipeKeys.add(k);
+            upgradeRecipes.put(k.getKey(), i + 1);
+        }
         for (Player p : Bukkit.getOnlinePlayers()) {
             for (NamespacedKey k : recipeKeys) p.discoverRecipe(k);
         }
@@ -165,6 +186,7 @@ public final class BackpackModule extends AbstractModule {
         for (NamespacedKey k : recipeKeys) Bukkit.removeRecipe(k);
         recipeKeys.clear();
         dyeRecipes.clear();
+        upgradeRecipes.clear();
         skins.clear();
     }
 
@@ -216,11 +238,7 @@ public final class BackpackModule extends AbstractModule {
         Skin s = skins.getOrDefault(skinId, skins.get(defaultSkin()));
         ItemStack it = new ItemStack(s.base());
         ItemMeta m = it.getItemMeta();
-        m.lore(List.of(
-                item("<aqua>◆</aqua> <gray>Wears in the chest slot</gray> <dark_gray>(no armor value)</dark_gray>"),
-                item("<aqua>◆</aqua> <gray>Right-click in hand to open, or sneak-right-click while worn"),
-                item("<dark_gray>▪ Contents are stored inside the item</dark_gray>"),
-                item("<dark_gray>▪ Craft it together with a dye to restyle it</dark_gray>")));
+        m.lore(loreFor(baseRows()));
         m.setMaxStackSize(1);
         // a backpack is storage, not armour: wipe the vanilla chestplate armour bonus
         m.setAttributeModifiers(com.google.common.collect.HashMultimap.create());
@@ -228,6 +246,28 @@ public final class BackpackModule extends AbstractModule {
         it.setItemMeta(m);
         applySkin(it, s);
         return it;
+    }
+
+    private List<net.kyori.adventure.text.Component> loreFor(int rows) {
+        return List.of(
+                item("<aqua>◆</aqua> <gray>Wears in the chest slot</gray> <dark_gray>(no armor value)</dark_gray>"),
+                item("<aqua>◆</aqua> <gray>Right-click in hand to open, or sneak-right-click while worn"),
+                item("<gold>▪</gold> <gray>Capacity: <white>" + rows + " rows</white>"),
+                item("<dark_gray>▪ Contents are stored inside the item</dark_gray>"),
+                item("<dark_gray>▪ Craft it with a dye to restyle it, or with ingots to enlarge it</dark_gray>"));
+    }
+
+    private int baseRows() {
+        return Math.max(1, Math.min(6, plugin.getConfig().getInt("backpack.rows", 3)));
+    }
+
+    private int tierOf(ItemStack it) {
+        Integer t = it.getItemMeta().getPersistentDataContainer().get(tierKey, PersistentDataType.INTEGER);
+        return t == null ? 0 : Math.max(0, t);
+    }
+
+    private int rowsOf(ItemStack it) {
+        return Math.max(1, Math.min(6, baseRows() + tierOf(it)));
     }
 
     private void applySkin(ItemStack it, Skin s) {
@@ -255,14 +295,14 @@ public final class BackpackModule extends AbstractModule {
         eq.setSlot(EquipmentSlot.CHEST);
         eq.setModel(equipmentKey(skinId));
         eq.setDamageOnHurt(false);
-        eq.setSwappable(true);
+        eq.setSwappable(false);   // right-click opens the pack; a swappable item makes the client predict a chestplate swap
         m.setEquippable(eq);
     }
 
     private boolean needsEquippable(ItemStack it) {
         ItemMeta m = it.getItemMeta();
         EquippableComponent eq = m.getEquippable();
-        return eq.getSlot() != EquipmentSlot.CHEST || !equipmentKey(skinOf(it)).equals(eq.getModel());
+        return eq.getSlot() != EquipmentSlot.CHEST || eq.isSwappable() || !equipmentKey(skinOf(it)).equals(eq.getModel());
     }
 
     /** Backpacks made before equipment mode (or on another skin) get their equippable component added. */
@@ -450,6 +490,7 @@ public final class BackpackModule extends AbstractModule {
             // the click to SurvivalModule (sneak + right-click on water = drink).
             if (aimingAtWater(p)) return;
             e.setCancelled(true);
+            resync(p);
             tryOpen(p, wornPack);
             return;
         }
@@ -457,9 +498,22 @@ public final class BackpackModule extends AbstractModule {
             org.bukkit.block.Block clicked = e.getClickedBlock();
             // chests, doors, crafting tables... still work while a backpack is in hand (sneak to open the pack)
             if (clicked != null && !p.isSneaking() && clicked.getType().isInteractable()) return;
+            if (equipmentMode()) {   // older packs still carry the swappable flag: fix the real held stack now
+                ItemStack real = p.getInventory().getItemInMainHand();
+                if (isBackpack(real) && needsEquippable(real)) {
+                    upgrade(real);
+                    p.getInventory().setItemInMainHand(real);
+                }
+            }
             e.setCancelled(true);   // also stops vanilla from equipping the chestplate on use
+            resync(p);              // the client may already have predicted a swap: force the real inventory back
             tryOpen(p, hand);
         }
+    }
+
+    /** Re-sends the inventory next tick so a client-side predicted armour swap can never stay on screen. */
+    private void resync(Player p) {
+        Bukkit.getScheduler().runTask(plugin, p::updateInventory);
     }
 
     private boolean aimingAtWater(Player p) {
@@ -484,7 +538,7 @@ public final class BackpackModule extends AbstractModule {
             pdc.set(idKey, PersistentDataType.STRING, id);
             stack.setItemMeta(m);
         }
-        int rows = Math.max(1, Math.min(6, plugin.getConfig().getInt("backpack.rows", 3)));
+        int rows = rowsOf(stack);
         Holder h = new Holder(id);
         Inventory inv = Bukkit.createInventory(h, rows * 9, mm(skins.get(skinOf(stack)).name()));
         h.inv = inv;
@@ -542,6 +596,27 @@ public final class BackpackModule extends AbstractModule {
     @EventHandler
     public void onPrepare(PrepareItemCraftEvent e) {
         if (!(e.getRecipe() instanceof Keyed k)) return;
+        Integer upTo = upgradeRecipes.get(k.getKey().getKey());
+        if (upTo != null) {
+            ItemStack src = null;
+            for (ItemStack it : e.getInventory().getMatrix()) {
+                if (isBackpack(it)) {
+                    src = it;
+                    break;
+                }
+            }
+            if (src == null || tierOf(src) != upTo - 1) {
+                e.getInventory().setResult(null);   // a plain chestplate, or the wrong tier for this ingot
+                return;
+            }
+            ItemStack up = src.clone();
+            ItemMeta um = up.getItemMeta();
+            um.getPersistentDataContainer().set(tierKey, PersistentDataType.INTEGER, upTo);
+            um.lore(loreFor(Math.min(6, baseRows() + upTo)));
+            up.setItemMeta(um);
+            e.getInventory().setResult(up);
+            return;
+        }
         String skinId = dyeRecipes.get(k.getKey().getKey());
         if (skinId == null) {
             // any other recipe would eat the backpack as plain leather - and its contents with it

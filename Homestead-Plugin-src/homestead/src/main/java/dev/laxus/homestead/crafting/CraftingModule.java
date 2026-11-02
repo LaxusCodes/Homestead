@@ -88,7 +88,9 @@ public final class CraftingModule extends AbstractModule {
         d.put("rice_bale", shaped(new String[]{"WWW", "WSW", "WWW"}, "W", "WHEAT", "S", "STICK"));
         d.put("wooden_basket", shaped(new String[]{"W W", "WSW", "W W"}, "W", "BIRCH_PLANKS", "S", "STICK"));
         d.put("bamboo_basket", shaped(new String[]{"W W", "WSW", "W W"}, "W", "BAMBOO_PLANKS", "S", "STICK"));
-        d.put("cutting_board", shaped(new String[]{"PPP", "PPP"}, "P", "OAK_PLANKS"));
+        // 3x2 oak planks is the vanilla trapdoor recipe (vanilla wins the match), so use 2x2 slabs
+        d.put("cutting_board", shaped(new String[]{"SS", "SS"}, "S", "OAK_SLAB"));
+        d.put("kitchen_knife", shaped(new String[]{"I", "S"}, "I", "IRON_INGOT", "S", "STICK"));
         d.put("golden_leaf", shapeless("GOLD_NUGGET", "GOLD_NUGGET", "GOLD_NUGGET", "GOLD_NUGGET", "APPLE"));
         return d;
     }
@@ -150,6 +152,12 @@ public final class CraftingModule extends AbstractModule {
                 && (custom == null || !custom.contains("golden_leaf"))
                 && plugin.getConfig().getBoolean("crafting.auto-decor", true)) {
             register("craft_golden_leaf", "golden_leaf", DEFAULTS.get("golden_leaf"), 1);
+        }
+
+        // the kitchen knife (cutting boards) has no decor entry either
+        if (plugin.decor() != null && plugin.getConfig().getBoolean("crafting.auto-decor", true)
+                && (custom == null || !custom.contains("kitchen_knife"))) {
+            register("craft_kitchen_knife", "kitchen_knife", DEFAULTS.get("kitchen_knife"), 1);
         }
 
         registerCookedItems(custom);
@@ -219,7 +227,8 @@ public final class CraftingModule extends AbstractModule {
         if (!(e.getRecipe() instanceof org.bukkit.Keyed k)) return;
         String name = k.getKey().getKey();
         boolean ours = k.getKey().getNamespace().equals(plugin.getName().toLowerCase(Locale.ROOT));
-        boolean allowCustom = ours && (wineChecks.containsKey(name) || name.startsWith("backpack_skin_"));
+        boolean allowCustom = ours && (wineChecks.containsKey(name) || name.startsWith("backpack_skin_")
+                || name.startsWith("backpack_upgrade_"));
         if (!allowCustom) {
             for (ItemStack it : e.getInventory().getMatrix()) {
                 if (plugin.isHomesteadItem(it)) {
@@ -291,6 +300,9 @@ public final class CraftingModule extends AbstractModule {
     private ItemStack resolveResult(String result) {
         if (result.equalsIgnoreCase("golden_leaf") || result.equalsIgnoreCase("golden-leaf")) {
             return plugin.artifacts() != null ? plugin.artifacts().createGoldenLeaf() : null;
+        }
+        if (result.equalsIgnoreCase("kitchen_knife")) {
+            return plugin.decor() == null ? null : plugin.decor().createKnife();
         }
         if (result.toLowerCase(Locale.ROOT).startsWith("meal:")) {
             return plugin.cooking() == null ? null : plugin.cooking().createMeal(result.substring(5));

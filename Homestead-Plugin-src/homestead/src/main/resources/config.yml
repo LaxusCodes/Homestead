@@ -68,12 +68,189 @@ temperature:
   freeze-ticks: 100   # strength of the frost overlay (no damage). Skipped near fire, in leather, or after hot meals
 
 farming:
-  greenhouse-light: 12   # block light level that counts as a heated greenhouse (ignores winter slowdown)
-  seasons:               # <1.0 = chance growth is allowed, >1.0 = chance of a bonus stage
-    spring: 1.4
-    summer: 1.0
-    autumn: 1.0
-    winter: 0.25
+  # Crop growth = season % x biome % (each 100 / 50 / 0). 100 = vanilla speed, 50 = half, 25 = quarter, 0 = no growth.
+  # Both come from the single Homestead season clock (seasons.days-per-season). There is no greenhouse / light bonus.
+  # Only crops listed under growth: are touched. Edit freely - a bad entry only logs a warning for that crop.
+  default-biome-multiplier: 50   # biome not listed for a crop (a crop can override with biome-default)
+  bone-meal-respects-multiplier: true   # bone meal obeys the same % (0% = bone meal cannot force growth)
+  inspect: true                  # sneak + right-click a crop with an empty hand (or /homestead crop) shows why it grows how it does
+  growth:
+    wheat:
+      blocks: [WHEAT]
+      seasons: { spring: 100, summer: 50, autumn: 50, winter: 0 }
+      biomes:
+        suitable: [PLAINS, SUNFLOWER_PLAINS, MEADOW]
+        unfavorable: [FOREST, FLOWER_FOREST, BIRCH_FOREST, DARK_FOREST, TAIGA, OLD_GROWTH_PINE_TAIGA, OLD_GROWTH_SPRUCE_TAIGA, SAVANNA]
+        unsuitable: [DESERT, BADLANDS, ERODED_BADLANDS, WOODED_BADLANDS]
+    carrot:
+      blocks: [CARROTS]
+      seasons: { spring: 100, summer: 50, autumn: 50, winter: 0 }
+      biomes:
+        suitable: [PLAINS, SUNFLOWER_PLAINS, MEADOW]
+        unfavorable: [FOREST, FLOWER_FOREST, BIRCH_FOREST, TAIGA, SAVANNA]
+        unsuitable: [DESERT, BADLANDS, ERODED_BADLANDS, WOODED_BADLANDS]
+    potato:
+      blocks: [POTATOES]
+      seasons: { spring: 100, summer: 50, autumn: 50, winter: 0 }
+      biomes:
+        suitable: [PLAINS, MEADOW, TAIGA, OLD_GROWTH_PINE_TAIGA, OLD_GROWTH_SPRUCE_TAIGA]
+        unfavorable: [FOREST, BIRCH_FOREST, GROVE, SNOWY_PLAINS]
+        unsuitable: [DESERT, BADLANDS, ERODED_BADLANDS, WOODED_BADLANDS]
+    beetroot:
+      blocks: [BEETROOTS]
+      seasons: { spring: 50, summer: 50, autumn: 100, winter: 0 }
+      biomes:
+        suitable: [PLAINS, SUNFLOWER_PLAINS, MEADOW]
+        unfavorable: [FOREST, BIRCH_FOREST, TAIGA, SAVANNA]
+        unsuitable: [DESERT, BADLANDS, ERODED_BADLANDS, WOODED_BADLANDS]
+    pumpkin:
+      blocks: [PUMPKIN_STEM, ATTACHED_PUMPKIN_STEM, PUMPKIN]
+      seasons: { spring: 0, summer: 50, autumn: 100, winter: 0 }
+      biomes:
+        suitable: [PLAINS, FOREST, BIRCH_FOREST, OLD_GROWTH_BIRCH_FOREST]
+        unfavorable: [MEADOW, SAVANNA, TAIGA]
+        unsuitable: [DESERT, BADLANDS, ERODED_BADLANDS, WOODED_BADLANDS]
+    melon:
+      blocks: [MELON_STEM, ATTACHED_MELON_STEM, MELON]
+      seasons: { spring: 50, summer: 100, autumn: 50, winter: 0 }
+      biomes:
+        suitable: [JUNGLE, SPARSE_JUNGLE, SAVANNA, SAVANNA_PLATEAU]
+        unfavorable: [PLAINS, FOREST, BIRCH_FOREST]
+        unsuitable: [SNOWY_PLAINS, ICE_SPIKES, SNOWY_TAIGA, GROVE]
+    torchflower:
+      blocks: [TORCHFLOWER_CROP]
+      seasons: { spring: 50, summer: 100, autumn: 50, winter: 0 }
+      biomes:
+        suitable: [SAVANNA, SAVANNA_PLATEAU, PLAINS]
+        unfavorable: [JUNGLE, SPARSE_JUNGLE, MEADOW]
+        unsuitable: [SNOWY_PLAINS, ICE_SPIKES, SNOWY_TAIGA, GROVE]
+    pitcher_plant:
+      blocks: [PITCHER_CROP]
+      seasons: { spring: 50, summer: 100, autumn: 50, winter: 0 }
+      biomes:
+        suitable: [JUNGLE, SPARSE_JUNGLE, PLAINS]
+        unfavorable: [FOREST, SAVANNA]
+        unsuitable: [SNOWY_PLAINS, ICE_SPIKES, SNOWY_TAIGA, GROVE]
+    cactus:
+      blocks: [CACTUS]
+      seasons: { spring: 50, summer: 100, autumn: 50, winter: 0 }
+      biomes:
+        suitable: [DESERT, BADLANDS, ERODED_BADLANDS, WOODED_BADLANDS]
+        unfavorable: [SAVANNA, SAVANNA_PLATEAU]
+        unsuitable: [SNOWY_PLAINS, ICE_SPIKES, SNOWY_TAIGA, GROVE, FROZEN_PEAKS]
+    sugar_cane:
+      blocks: [SUGAR_CANE]
+      seasons: { spring: 50, summer: 100, autumn: 50, winter: 0 }
+      biomes:
+        suitable: [SWAMP, MANGROVE_SWAMP, RIVER, JUNGLE, SPARSE_JUNGLE]
+        unfavorable: [PLAINS, FOREST, SAVANNA]
+        unsuitable: [SNOWY_PLAINS, ICE_SPIKES, SNOWY_TAIGA, FROZEN_PEAKS]
+    cocoa_beans:
+      blocks: [COCOA]
+      seasons: { spring: 50, summer: 100, autumn: 50, winter: 0 }
+      biomes:
+        suitable: [JUNGLE, SPARSE_JUNGLE]
+        unfavorable: [BAMBOO_JUNGLE]
+        unsuitable: [DESERT, BADLANDS, ERODED_BADLANDS, WOODED_BADLANDS, SNOWY_PLAINS, ICE_SPIKES, SNOWY_TAIGA]
+    bamboo:
+      blocks: [BAMBOO, BAMBOO_SAPLING]
+      seasons: { spring: 50, summer: 100, autumn: 50, winter: 0 }
+      biomes:
+        suitable: [JUNGLE, BAMBOO_JUNGLE]
+        unfavorable: [SPARSE_JUNGLE, FOREST]
+        unsuitable: [DESERT, BADLANDS, SNOWY_PLAINS, ICE_SPIKES, SNOWY_TAIGA]
+    sweet_berries:
+      blocks: [SWEET_BERRY_BUSH]
+      seasons: { spring: 50, summer: 50, autumn: 100, winter: 0 }
+      biomes:
+        suitable: [TAIGA, SNOWY_TAIGA, OLD_GROWTH_PINE_TAIGA, OLD_GROWTH_SPRUCE_TAIGA]
+        unfavorable: [FOREST, GROVE, SNOWY_PLAINS]
+        unsuitable: [DESERT, BADLANDS, ERODED_BADLANDS, WOODED_BADLANDS]
+    glow_berries:
+      blocks: [CAVE_VINES, CAVE_VINES_PLANT]
+      seasons: { spring: 50, summer: 50, autumn: 100, winter: 0 }
+      biomes:
+        suitable: [LUSH_CAVES]
+        unfavorable: [DARK_FOREST, SWAMP, FOREST]
+        unsuitable: [DESERT, BADLANDS, ERODED_BADLANDS, WOODED_BADLANDS]
+    brown_mushroom:
+      blocks: [BROWN_MUSHROOM]
+      seasons: { spring: 50, summer: 0, autumn: 100, winter: 50 }
+      biomes:
+        suitable: [DARK_FOREST, OLD_GROWTH_PINE_TAIGA, OLD_GROWTH_SPRUCE_TAIGA, MUSHROOM_FIELDS, SWAMP]
+        unfavorable: [FOREST, TAIGA, LUSH_CAVES]
+        unsuitable: [DESERT, BADLANDS, ERODED_BADLANDS, WOODED_BADLANDS]
+    red_mushroom:
+      blocks: [RED_MUSHROOM]
+      seasons: { spring: 50, summer: 0, autumn: 100, winter: 50 }
+      biomes:
+        suitable: [DARK_FOREST, MUSHROOM_FIELDS, OLD_GROWTH_PINE_TAIGA, OLD_GROWTH_SPRUCE_TAIGA]
+        unfavorable: [FOREST, TAIGA, SWAMP, LUSH_CAVES]
+        unsuitable: [DESERT, BADLANDS, ERODED_BADLANDS, WOODED_BADLANDS]
+    kelp:
+      blocks: [KELP, KELP_PLANT]
+      seasons: { spring: 50, summer: 100, autumn: 50, winter: 0 }
+      biome-default: 0
+      biomes:
+        suitable: [OCEAN, DEEP_OCEAN, COLD_OCEAN, DEEP_COLD_OCEAN, LUKEWARM_OCEAN, DEEP_LUKEWARM_OCEAN, WARM_OCEAN]
+        unfavorable: [FROZEN_OCEAN, DEEP_FROZEN_OCEAN]
+    sea_pickle:
+      blocks: [SEA_PICKLE]
+      seasons: { spring: 50, summer: 100, autumn: 50, winter: 0 }
+      biome-default: 0
+      biomes:
+        suitable: [WARM_OCEAN, LUKEWARM_OCEAN]
+        unfavorable: [OCEAN, DEEP_OCEAN]
+        unsuitable: [COLD_OCEAN, DEEP_COLD_OCEAN, FROZEN_OCEAN, DEEP_FROZEN_OCEAN]
+    nether_wart:
+      blocks: [NETHER_WART]
+      seasons: { spring: 50, summer: 100, autumn: 50, winter: 0 }
+      biome-default: 0
+      biomes:
+        suitable: [NETHER_WASTES, SOUL_SAND_VALLEY]
+        unfavorable: [CRIMSON_FOREST, WARPED_FOREST, BASALT_DELTAS]
+    crimson_fungus:
+      blocks: [CRIMSON_FUNGUS]
+      seasons: { spring: 50, summer: 100, autumn: 50, winter: 0 }
+      biome-default: 0
+      biomes:
+        suitable: [CRIMSON_FOREST]
+        unfavorable: [NETHER_WASTES, SOUL_SAND_VALLEY]
+    warped_fungus:
+      blocks: [WARPED_FUNGUS]
+      seasons: { spring: 50, summer: 100, autumn: 50, winter: 0 }
+      biome-default: 0
+      biomes:
+        suitable: [WARPED_FOREST]
+        unfavorable: [NETHER_WASTES, SOUL_SAND_VALLEY, BASALT_DELTAS]
+    weeping_vines:
+      blocks: [WEEPING_VINES, WEEPING_VINES_PLANT]
+      seasons: { spring: 50, summer: 100, autumn: 50, winter: 0 }
+      biome-default: 0
+      biomes:
+        suitable: [CRIMSON_FOREST]
+        unfavorable: [NETHER_WASTES]
+    twisting_vines:
+      blocks: [TWISTING_VINES, TWISTING_VINES_PLANT]
+      seasons: { spring: 50, summer: 100, autumn: 50, winter: 0 }
+      biome-default: 0
+      biomes:
+        suitable: [WARPED_FOREST]
+        unfavorable: [NETHER_WASTES]
+    nether_sprouts:
+      blocks: [NETHER_SPROUTS]
+      seasons: { spring: 50, summer: 100, autumn: 50, winter: 0 }
+      biome-default: 0
+      biomes:
+        suitable: [WARPED_FOREST]
+        unfavorable: [NETHER_WASTES, SOUL_SAND_VALLEY]
+    chorus:
+      blocks: [CHORUS_PLANT, CHORUS_FLOWER]
+      seasons: { spring: 50, summer: 50, autumn: 100, winter: 0 }
+      biome-default: 0
+      biomes:
+        suitable: [END_HIGHLANDS, END_MIDLANDS]
+        unfavorable: [END_BARRENS, SMALL_END_ISLANDS]
 
 cooking:
   # cmd = custom model data number, model = model path shown (both used by tools/gen_pack.py).
@@ -267,6 +444,98 @@ cooking:
       servings: 3
       thirst: 1
 
+    # ---- more dishes (no custom model yet: they use the vanilla look of their base item) ----
+    herb_roast_chicken:
+      name: "<gold>Herb Roast Chicken"
+      base: COOKED_CHICKEN
+      ingredients: { CHICKEN: 1, POTATO: 1, BROWN_MUSHROOM: 1 }
+      time: 14
+      servings: 3
+      effects: ["saturation:6:0", "regeneration:6:0"]
+      warmth: 300
+    fish_and_chips:
+      name: "<aqua>Fish and Chips"
+      base: COOKED_COD
+      ingredients: { COD: 1, POTATO: 2 }
+      time: 12
+      servings: 2
+      effects: ["dolphins_grace:30:0", "saturation:4:0"]
+    salmon_rice:
+      name: "<red>Salmon Rice Bowl"
+      base: COOKED_SALMON
+      ingredients: { SALMON: 1, WHEAT: 2 }
+      time: 12
+      servings: 2
+      effects: ["water_breathing:60:0", "saturation:4:0"]
+    pumpkin_pie_slice:
+      name: "<gold>Pumpkin Pie"
+      base: PUMPKIN_PIE
+      container: PAPER
+      ingredients: { PUMPKIN: 1, SUGAR: 1, EGG: 1 }
+      time: 12
+      servings: 3
+      effects: ["health_boost:90:0"]
+    honey_glazed_carrots:
+      name: "<yellow>Honey Glazed Carrots"
+      base: GOLDEN_CARROT
+      ingredients: { CARROT: 3, HONEY_BOTTLE: 1 }
+      time: 10
+      servings: 2
+      effects: ["night_vision:60:0", "saturation:4:0"]
+    mutton_curry:
+      name: "<gold>Mutton Curry"
+      base: RABBIT_STEW
+      ingredients: { MUTTON: 1, POTATO: 1, CARROT: 1 }
+      time: 14
+      servings: 3
+      effects: ["strength:40:0", "fire_resistance:60:0"]
+      thirst: 2
+      warmth: 420
+    forest_risotto:
+      name: "<dark_green>Forest Risotto"
+      base: MUSHROOM_STEW
+      ingredients: { BROWN_MUSHROOM: 2, WHEAT: 2 }
+      time: 12
+      servings: 3
+      effects: ["regeneration:8:0", "absorption:40:0"]
+      thirst: 2
+      warmth: 240
+    berry_smoothie:
+      name: "<light_purple>Berry Smoothie"
+      base: HONEY_BOTTLE
+      container: GLASS_BOTTLE
+      ingredients: { SWEET_BERRIES: 3, SUGAR: 1, MELON_SLICE: 1 }
+      time: 8
+      servings: 2
+      effects: ["speed:40:0"]
+      thirst: 7
+    honey_tea:
+      name: "<gold>Honey Tea"
+      base: HONEY_BOTTLE
+      container: GLASS_BOTTLE
+      ingredients: { HONEY_BOTTLE: 1, SUGAR: 1 }
+      time: 8
+      servings: 2
+      effects: ["regeneration:8:0"]
+      thirst: 8
+      warmth: 420
+    honey_must:
+      name: "<gold>Honey Must"
+      base: HONEY_BOTTLE
+      container: GLASS_BOTTLE
+      ingredients: { HONEY_BOTTLE: 3, SUGAR: 1 }
+      time: 8
+      servings: 3
+      thirst: 1
+    melon_must:
+      name: "<green>Melon Must"
+      base: HONEY_BOTTLE
+      container: GLASS_BOTTLE
+      ingredients: { MELON_SLICE: 6, SUGAR: 1 }
+      time: 8
+      servings: 3
+      thirst: 1
+
 wine:
   # 1) cook a must in the pot  2) open a barrel and put must bottles inside  3) wait
   # The timer starts the moment the bottles land in the barrel and counts down live on the action bar
@@ -301,12 +570,36 @@ wine:
       nausea: 15
       warmth: 300
       effects: ["night_vision:60:0"]
+    mead:
+      from: honey_must
+      name: "<gold>Honey Mead"
+      base: HONEY_BOTTLE
+      nausea: 14
+      warmth: 360
+      effects: ["regeneration:20:0", "health_boost:30:0"]
+    melon_wine:
+      from: melon_must
+      name: "<green>Melon Wine"
+      base: HONEY_BOTTLE
+      nausea: 10
+      warmth: 200
+      effects: ["jump_boost:45:0", "speed:20:0"]
 
 decor:
   # base item is PAPER so furniture can't be placed as a block or eaten.
   # cmd = custom model data number, model = model shown (used by tools/gen_pack.py).
   # scale = display size. width/height = click hitbox (spawned at the vertical center of the model).
   # seat-height = rider offset (tune if sitting looks off). display-y = small manual nudge of the model.
+  # Functions (right-click, no sneak; sneak + right-click picks the piece up again):
+  #   storage-rows: N  -> cabinets / baskets / bale open a real storage GUI, saved on the furniture itself
+  #   station: stove   -> feed it fuel, grill raw food, warms nearby players, heats a pot beside it
+  #   station: pot     -> a real cooking pot: set it on a lit campfire/furnace or beside a lit stove
+  #   station: board   -> cutting board: Kitchen Knife in one hand, ingredient in the other
+  private-storage: false   # true = only the player who placed a cabinet/basket (or an admin) can open it
+  cozy:                    # sit on a chair / stool / mat for a few seconds to rest up
+    enabled: true
+    after-seconds: 5
+    regen-seconds: 5
   items:
     oak_chair:
       name: "<gold>Oak Chair"
@@ -398,6 +691,7 @@ decor:
       width: 1.0
       height: 1.0
       seat-height: 0.0
+      storage-rows: 3
     spruce_cabinet:
       name: "<dark_gray>Spruce Cabinet"
       material: PAPER
@@ -408,6 +702,7 @@ decor:
       width: 1.0
       height: 1.0
       seat-height: 0.0
+      storage-rows: 3
     birch_cabinet:
       name: "<white>Birch Cabinet"
       material: PAPER
@@ -418,6 +713,7 @@ decor:
       width: 1.0
       height: 1.0
       seat-height: 0.0
+      storage-rows: 3
     dark_oak_cabinet:
       name: "<dark_gray>Dark Oak Cabinet"
       material: PAPER
@@ -428,6 +724,7 @@ decor:
       width: 1.0
       height: 1.0
       seat-height: 0.0
+      storage-rows: 3
     cooking_pot:
       name: "<gray>Cooking Pot"
       material: PAPER
@@ -438,6 +735,7 @@ decor:
       width: 0.9
       height: 0.7
       seat-height: 0.0
+      station: pot
     stove:
       name: "<gray>Stove"
       material: PAPER
@@ -448,6 +746,7 @@ decor:
       width: 1.0
       height: 1.0
       seat-height: 0.0
+      station: stove
     rice_bale:
       name: "<white>Rice Bale"
       material: PAPER
@@ -458,6 +757,7 @@ decor:
       width: 1.0
       height: 1.0
       seat-height: 0.0
+      storage-rows: 1
     wooden_basket:
       name: "<gold>Wooden Basket"
       material: PAPER
@@ -468,6 +768,7 @@ decor:
       width: 0.9
       height: 0.8
       seat-height: 0.0
+      storage-rows: 2
     bamboo_basket:
       name: "<green>Bamboo Basket"
       material: PAPER
@@ -478,6 +779,7 @@ decor:
       width: 0.9
       height: 0.8
       seat-height: 0.0
+      storage-rows: 2
     cutting_board:
       name: "<gold>Cutting Board"
       material: PAPER
@@ -486,8 +788,45 @@ decor:
       seat: false
       scale: 1.0
       width: 0.8
-      height: 0.1
+      height: 0.2
       seat-height: 0.0
+      station: board
+
+stove:
+  # Right-click a Stove with fuel to light it. It burns by time (it keeps burning if you leave).
+  max-seconds: 600          # a stove never holds more than this much fuel
+  grill-seconds: 3          # how long grilling one item takes
+  fuel-seconds:             # seconds of heat per item. LOGS / PLANKS match every wood type
+    COAL: 90
+    CHARCOAL: 90
+    COAL_BLOCK: 900
+    BLAZE_ROD: 180
+    DRIED_KELP_BLOCK: 180
+    STICK: 6
+    LOGS: 40
+    PLANKS: 10
+  grill:                    # raw item -> grilled item (right-click a LIT stove holding the raw item)
+    BEEF: COOKED_BEEF
+    PORKCHOP: COOKED_PORKCHOP
+    CHICKEN: COOKED_CHICKEN
+    MUTTON: COOKED_MUTTON
+    RABBIT: COOKED_RABBIT
+    COD: COOKED_COD
+    SALMON: COOKED_SALMON
+    POTATO: BAKED_POTATO
+    KELP: DRIED_KELP
+
+cutting-board:
+  # Hold a Kitchen Knife in one hand and the ingredient in the other, right-click a Cutting Board.
+  # INGREDIENT: RESULT:amount - add your own lines freely.
+  recipes:
+    PUMPKIN: PUMPKIN_SEEDS:4
+    MELON: MELON_SLICE:7
+    SUGAR_CANE: SUGAR:2
+    DRIED_KELP_BLOCK: DRIED_KELP:9
+    HONEYCOMB_BLOCK: HONEYCOMB:4
+    BONE_BLOCK: BONE_MEAL:9
+    HAY_BLOCK: WHEAT:9
 
 backpack:
   # A backpack is a textured CHESTPLATE (default base: chainmail; the vanilla armour bonus is wiped
@@ -505,6 +844,9 @@ backpack:
   #            display   = legacy 3D ItemDisplay on the back (hide-* options below only apply here).
   worn-mode: equipment
   rows: 3
+  upgrades:             # backpack + <amount> of the material = one more row (3 -> 4 -> 5 -> 6). Order = tier 1, 2, 3
+    items: [IRON_INGOT, GOLD_INGOT, DIAMOND]
+    amount: 4
   base: CHAINMAIL_CHESTPLATE
   default-skin: classic
   show-on-back: true

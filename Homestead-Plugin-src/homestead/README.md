@@ -9,7 +9,7 @@ Requires Paper **26.3+** and Java 25. Custom items use `custom_model_data`; the 
 | Module | What it does |
 |---|---|
 | survival | 4 seasons, effective temperature (cold overlay, warm near fires / in leather / after hot meals), thirst bar (full bar drains to 0 in 20 minutes; unboiled water can poison you - boil it in the pot), drink from water (sneak + right-click, empty hand) |
-| farming | crops grow faster in spring, slower in winter; light ≥ 12 nearby = heated greenhouse |
+| farming | crop growth = season % × biome % (100 / 50 / 0 each, set per crop in `config.yml`); bone meal obeys it; `/homestead crop` or sneak + right-click shows why |
 | cooking | cauldron on a lit campfire = cooking pot. Add ingredients, stir with a stick, serve with a bowl. Meals use Farmer's Delight models from the pack |
 | quests | chains in `quests.yml` (BREAK, HARVEST, KILL, CRAFT, COOK, EAT, DRINK, DECOR), item/command/xp rewards, `/quests` |
 | decor | 5 chairs, stool, tatami mat, rug, 4 cabinets, pot, stove, baskets, rice bale, cutting board (ItemDisplay + Interaction). Right-click the top of a block to place, right-click to sit (clicking the block the furniture stands on also works), sneak + right-click to pick up. Breaking the support block drops it back |

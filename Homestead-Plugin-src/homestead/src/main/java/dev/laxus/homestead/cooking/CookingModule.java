@@ -243,7 +243,14 @@ public final class CookingModule extends AbstractModule {
         Player p = e.getPlayer();
         if (p.isSneaking()) return; // vanilla cauldron behaviour
         e.setCancelled(true);
+        interactPot(p, b);
+    }
 
+    /**
+     * Pot logic shared by the cauldron-on-campfire pot and the furniture Cooking Pot (decor), which passes the
+     * block cell the furniture stands in. The caller has already checked that the pot has heat.
+     */
+    public void interactPot(Player p, Block b) {
         Pot pot = pots.computeIfAbsent(key(b), k -> new Pot(b.getLocation()));
         ItemStack hand = p.getInventory().getItemInMainHand();
         Material hm = hand.getType();
@@ -290,6 +297,20 @@ public final class CookingModule extends AbstractModule {
         savePot(pot);
         p.playSound(b.getLocation(), Sound.BLOCK_BREWING_STAND_BREW, 0.5f, 1.4f);
         p.sendActionBar(mm("<green>✚</green> " + nice(hm) + " <dark_gray>(" + pot.total() + "/" + MAX_ITEMS + ")"));
+    }
+
+    /** True while the pot at b still needs a heat source: it is empty or being filled, not yet cooking or ready. */
+    public boolean needsHeat(Block b) {
+        Pot pot = pots.get(key(b));
+        return pot == null || (!pot.cooking && pot.ready == null);
+    }
+
+    /** Ends the pot at b (furniture picked up / placed fresh): ingredients drop, the saved row is deleted. */
+    public void removePot(Block b) {
+        Pot pot = pots.remove(key(b));
+        if (pot != null) dropContents(pot);
+        plugin.db().deletePot(new Sqlite.PotRow(b.getWorld().getUID(), b.getX(), b.getY(), b.getZ(),
+                "", false, 0L, "", 0));
     }
 
     private void showContents(Player p, Pot pot) {
@@ -365,7 +386,8 @@ public final class CookingModule extends AbstractModule {
             World w = Bukkit.getWorld(row.world());
             if (w == null) continue;   // world not loaded yet: the row waits for a later start
             Block b = w.getBlockAt(row.x(), row.y(), row.z());
-            if (!isPot(b)) {
+            // air = possibly a furniture cooking pot (its entities are not loaded yet at startup): keep the row
+            if (!isPot(b) && !b.getType().isAir()) {
                 plugin.db().deletePot(row);   // the pot was gone while the server was off
                 continue;
             }

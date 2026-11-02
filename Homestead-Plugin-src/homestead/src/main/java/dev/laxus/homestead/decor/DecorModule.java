@@ -6,6 +6,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Particle;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
@@ -21,6 +22,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.world.EntitiesLoadEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -30,6 +32,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Transformation;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
@@ -64,11 +68,14 @@ import static dev.laxus.homestead.Text.mm;
 public final class DecorModule extends AbstractModule {
 
     public record Def(String id, String name, Material material, int cmd, boolean seat,
-                      double scale, double width, double height, double seatHeight, double displayY) {}
+                      double scale, double width, double height, double seatHeight, double displayY,
+                      int storageRows, String station) {}
 
     private final Map<String, Def> defs = new LinkedHashMap<>();
     private final Map<UUID, ArmorStand> seats = new HashMap<>();
     private final Map<UUID, ArmorStand> seatByFurniture = new HashMap<>();
+    private final Map<UUID, Integer> seatedFor = new HashMap<>();   // ticks a player has been sitting
+    private FurnitureFunctions functions;
     private final NamespacedKey idKey;
     private final NamespacedKey ownerKey;
     private final NamespacedKey displayKey;
@@ -92,7 +99,14 @@ public final class DecorModule extends AbstractModule {
     @Override
     protected void onEnable() {
         loadDefs();
+        functions = new FurnitureFunctions(plugin, this);
         every(10L, this::checkSeats);
+        every(20L, functions::tickStoves);
+    }
+
+    @Override
+    protected void beforeDisable() {
+        if (functions != null) functions.closeAll();   // open cabinets / baskets save before the module goes down
     }
 
     @Override
@@ -100,7 +114,9 @@ public final class DecorModule extends AbstractModule {
         for (ArmorStand a : new ArrayList<>(seats.values())) a.remove();
         seats.clear();
         seatByFurniture.clear();
+        seatedFor.clear();
         defs.clear();
+        functions = null;
     }
 
     private void loadDefs() {
@@ -117,7 +133,8 @@ public final class DecorModule extends AbstractModule {
             defs.put(id, new Def(id, s.getString("name", id), m, s.getInt("cmd", 0),
                     s.getBoolean("seat", false), s.getDouble("scale", 1.0), s.getDouble("width", 0.8),
                     s.getDouble("height", 0.8), s.getDouble("seat-height", 0.3),
-                    s.getDouble("display-y", 0.0)));
+                    s.getDouble("display-y", 0.0), s.getInt("storage-rows", defaultRows(id)),
+                    s.getString("station", defaultStation(id))));
         }
         plugin.getLogger().info("Loaded " + defs.size() + " furniture type(s).");
     }
@@ -137,6 +154,27 @@ public final class DecorModule extends AbstractModule {
         m.getPersistentDataContainer().set(itemKey, PersistentDataType.STRING, id);
         it.setItemMeta(m);
         return it;
+    }
+
+    /** Built-in functions, so a config.yml written before they existed still gets working furniture. */
+    private static int defaultRows(String id) {
+        if (id.endsWith("_cabinet")) return 3;
+        if (id.equals("wooden_basket") || id.equals("bamboo_basket")) return 2;
+        return id.equals("rice_bale") ? 1 : 0;
+    }
+
+    private static String defaultStation(String id) {
+        return switch (id) {
+            case "stove" -> "stove";
+            case "cooking_pot" -> "pot";
+            case "cutting_board" -> "board";
+            default -> "";
+        };
+    }
+
+    /** The Kitchen Knife used on cutting boards (crafted by CraftingModule, giveable by admins). */
+    public ItemStack createKnife() {
+        return functions == null ? null : functions.createKnife();
     }
 
     // -------------------------------------------------------------- placing
@@ -210,6 +248,7 @@ public final class DecorModule extends AbstractModule {
         tag(interaction, d.id(), owner, home);
         interaction.getPersistentDataContainer().set(displayKey, PersistentDataType.STRING, display.getUniqueId().toString());
         display.getPersistentDataContainer().set(interactKey, PersistentDataType.STRING, interaction.getUniqueId().toString());
+        if (functions != null) functions.onPlaced(interaction, d);
         loc.getWorld().playSound(loc.clone().add(0, 0.3, 0), Sound.BLOCK_STONE_PLACE, 0.7f, 0.9f);
     }
 
@@ -238,15 +277,33 @@ public final class DecorModule extends AbstractModule {
     }
 
     /** The hitbox half of a furniture piece (used as the stable seat anchor). */
-    private Entity hitboxOf(Entity e) {
+    Entity hitboxOf(Entity e) {
         if (e instanceof Interaction) return e;
         Entity peer = peerOf(e);
         return peer instanceof Interaction ? peer : e;
     }
 
-    private Def defOf(Entity e) {
+    Def defOf(Entity e) {
         String id = e.getPersistentDataContainer().get(idKey, PersistentDataType.STRING);
         return id == null ? null : defs.get(id);
+    }
+
+    /** UUID string of the player that placed this furniture, or null. */
+    String ownerOf(Entity e) {
+        return e.getPersistentDataContainer().get(ownerKey, PersistentDataType.STRING);
+    }
+
+    /** The block cell the furniture stands in, or null. */
+    Block homeBlockOf(Entity e) {
+        String home = e.getPersistentDataContainer().get(homeKey, PersistentDataType.STRING);
+        if (home == null) return null;
+        String[] p = home.split(",");
+        if (p.length != 3) return null;
+        try {
+            return e.getWorld().getBlockAt(Integer.parseInt(p[0]), Integer.parseInt(p[1]), Integer.parseInt(p[2]));
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     // ------------------------------------------------------ sit / pick up
@@ -291,6 +348,8 @@ public final class DecorModule extends AbstractModule {
 
         if (p.isSneaking()) {
             pickUp(p, furniture, d);
+        } else if (functions != null && functions.handle(p, furniture, d)) {
+            // storage / stove / pot / cutting board took the click
         } else if (d.seat()) {
             Entity target = hitboxOf(furniture);
             if (seatByFurniture.get(target.getUniqueId()) instanceof ArmorStand existing
@@ -316,6 +375,7 @@ public final class DecorModule extends AbstractModule {
     private void removeFurniture(Entity furniture, Def d, boolean drop) {
         Location loc = furniture.getLocation();
         Entity peer = peerOf(furniture);
+        if (functions != null) functions.beforeRemove(furniture, peer, d, loc);   // spill storage, end its pot
 
         // clear any seats tied to either half, then remove BOTH halves (no leftover ghost model)
         for (Entity part : new Entity[]{furniture, peer}) {
@@ -330,6 +390,11 @@ public final class DecorModule extends AbstractModule {
             loc.getWorld().dropItemNaturally(loc.clone().add(0, 0.5, 0), createItem(d.id()));
         }
         loc.getWorld().playSound(loc.clone().add(0, 0.4, 0), Sound.BLOCK_STONE_BREAK, 0.7f, 0.9f);
+    }
+
+    @EventHandler
+    public void onStorageClose(InventoryCloseEvent e) {
+        if (functions != null) functions.onClose(e);
     }
 
     // --------------------------------------------------------- support breaking
@@ -413,12 +478,28 @@ public final class DecorModule extends AbstractModule {
                 a.remove();
                 seats.remove(en.getKey());
                 seatByFurniture.values().remove(a);
+                seatedFor.remove(en.getKey());
+            } else {
+                cozy(p);
             }
         }
     }
 
+    /** Sitting still for a few seconds makes you comfortable: slow regeneration and a few hearts. */
+    private void cozy(Player p) {
+        if (!plugin.getConfig().getBoolean("decor.cozy.enabled", true)) return;
+        int ticks = seatedFor.merge(p.getUniqueId(), 10, Integer::sum);
+        int after = Math.max(1, plugin.getConfig().getInt("decor.cozy.after-seconds", 5)) * 20;
+        if (ticks < after || (ticks - after) % 100 != 0) return;
+        if (ticks == after) p.sendActionBar(mm("<light_purple>\u2665</light_purple> <gray>You feel cosy and rested."));
+        p.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION,
+                Math.max(1, plugin.getConfig().getInt("decor.cozy.regen-seconds", 5)) * 20, 0, true, false, true));
+        p.getWorld().spawnParticle(Particle.HEART, p.getLocation().add(0, 1.4, 0), 2, 0.3, 0.2, 0.3, 0.0);
+    }
+
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
+        seatedFor.remove(e.getPlayer().getUniqueId());
         ArmorStand a = seats.remove(e.getPlayer().getUniqueId());
         if (a != null) {
             a.remove();
@@ -457,6 +538,7 @@ public final class DecorModule extends AbstractModule {
                 en.remove();
                 continue;
             }
+            if (functions != null) functions.track(en);
             Integer v = pdc.get(versionKey, PersistentDataType.INTEGER);
             if (v != null && v >= LAYOUT_VERSION) continue;
             Def d = defOf(en);

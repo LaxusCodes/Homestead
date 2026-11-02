@@ -2,10 +2,12 @@ package dev.laxus.homestead;
 
 import dev.laxus.homestead.cooking.CookingModule;
 import dev.laxus.homestead.decor.DecorModule;
+import dev.laxus.homestead.farming.FarmingModule;
 import dev.laxus.homestead.quests.QuestModule;
 import dev.laxus.homestead.survival.SurvivalModule;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -49,6 +51,15 @@ public final class HomesteadCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage(mm("<gray>It is <white>day " + Season.dayInSeason(p.getWorld(), days)
                         + " <gray>of " + season.display + "<gray>. Thirst: <aqua>"
                         + String.format("%.1f", s.thirst(p)) + "<gray>/20"));
+            }
+            case "crop" -> {
+                FarmingModule f = plugin.farming();
+                if (!(sender instanceof Player p) || f == null) {
+                    sender.sendMessage(mm("<red>Farming module is disabled or you are not a player."));
+                    return true;
+                }
+                Block target = p.getTargetBlockExact(5);
+                f.inspect(p, target);
             }
             case "recipes" -> {
                 if (sender instanceof Player p && plugin.menus() != null) {
@@ -117,6 +128,7 @@ public final class HomesteadCommand implements CommandExecutor, TabCompleter {
                 group(sender, "<yellow>Backpacks:", plugin.backpack() == null ? List.of()
                         : concat("backpack", plugin.backpack().skinIds().stream().map(s -> "backpack:" + s).toList()));
                 group(sender, "<yellow>Artifacts:", plugin.artifacts() == null ? List.of() : List.of("golden_leaf"));
+                group(sender, "<yellow>Tools:", plugin.decor() == null ? List.of() : List.of("kitchen_knife"));
                 group(sender, "<yellow>Meals:", plugin.cooking() == null ? List.of() : plugin.cooking().recipeIds());
                 group(sender, "<yellow>Wines:", plugin.wine() == null ? List.of() : plugin.wine().ids());
             }
@@ -142,7 +154,7 @@ public final class HomesteadCommand implements CommandExecutor, TabCompleter {
                 }
             }
             default -> {
-                sender.sendMessage(mm("<gold>Homestead <gray>- /quests, /homestead season, /homestead recipes"));
+                sender.sendMessage(mm("<gold>Homestead <gray>- /quests, /homestead season, /homestead crop, /homestead recipes"));
                 if (sender.hasPermission("homestead.admin")) {
                     sender.sendMessage(mm("<gray>Admin: /homestead reload, items, give <player> <id> [n], setseason <season>"));
                 }
@@ -154,6 +166,7 @@ public final class HomesteadCommand implements CommandExecutor, TabCompleter {
     /** Any giveable item: furniture, backpack[:skin], golden_leaf, meals, wines. */
     private ItemStack resolveItem(String id) {
         if (id.equals("golden_leaf") && plugin.artifacts() != null) return plugin.artifacts().createGoldenLeaf();
+        if (id.equals("kitchen_knife") && plugin.decor() != null) return plugin.decor().createKnife();
         if (plugin.backpack() != null && (id.equals("backpack") || id.startsWith("backpack:"))) {
             int i = id.indexOf(':');
             if (i < 0) return plugin.backpack().createBackpack();
@@ -224,7 +237,7 @@ public final class HomesteadCommand implements CommandExecutor, TabCompleter {
             return out;
         }
         if (args.length == 1) {
-            out.addAll(List.of("help", "season", "recipes"));
+            out.addAll(List.of("help", "season", "crop", "recipes"));
             if (sender.hasPermission("homestead.admin")) out.addAll(List.of("reload", "give", "items", "setseason"));
         } else if (args[0].equalsIgnoreCase("give")) {
             if (args.length == 2) {
@@ -236,6 +249,7 @@ public final class HomesteadCommand implements CommandExecutor, TabCompleter {
                     for (String skin : plugin.backpack().skinIds()) out.add("backpack:" + skin);
                 }
                 out.add("golden_leaf");
+                out.add("kitchen_knife");
                 if (plugin.cooking() != null) out.addAll(plugin.cooking().recipeIds());
                 if (plugin.wine() != null) out.addAll(plugin.wine().ids());
             } else if (args.length == 4 && args[2].equalsIgnoreCase("backpack") && plugin.backpack() != null) {

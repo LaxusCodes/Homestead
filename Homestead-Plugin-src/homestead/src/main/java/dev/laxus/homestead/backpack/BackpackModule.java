@@ -216,10 +216,10 @@ public final class BackpackModule extends AbstractModule {
         ItemStack it = new ItemStack(s.base());
         ItemMeta m = it.getItemMeta();
         m.lore(List.of(
-                item("<aqua>◆</aqua> <gray>Wears in the chest slot</gray> <dark_gray>(no armor value)</dark_gray>"),
-                item("<aqua>◆</aqua> <gray>Right-click in hand to open, or sneak-right-click while worn"),
-                item("<dark_gray>▪ Contents are stored inside the item</dark_gray>"),
-                item("<dark_gray>▪ Craft it together with a dye to restyle it</dark_gray>")));
+                item("<aqua>???</aqua> <gray>Wears in the chest slot</gray> <dark_gray>(no armor value)</dark_gray>"),
+                item("<aqua>???</aqua> <gray>Right-click in hand to open, or sneak-right-click while worn"),
+                item("<dark_gray>??? Contents are stored inside the item</dark_gray>"),
+                item("<dark_gray>??? Craft it together with a dye to restyle it</dark_gray>")));
         m.setMaxStackSize(1);
         // a backpack is storage, not armour: wipe the vanilla chestplate armour bonus
         m.setAttributeModifiers(com.google.common.collect.HashMultimap.create());
@@ -262,8 +262,8 @@ public final class BackpackModule extends AbstractModule {
     private void updateWorn() {
         boolean show = plugin.getConfig().getBoolean("backpack.show-on-back", true);
         boolean alwaysHideSelf = plugin.getConfig().getBoolean("backpack.hide-from-self", false);
-        double lookDownLimit = plugin.getConfig().getDouble("backpack.hide-when-looking-down", 60.0);
-        if (lookDownLimit == 0.0) lookDownLimit = 60.0;  // legacy configs shipped 0 (= old default = off)
+        double lookDownLimit = plugin.getConfig().getDouble("backpack.hide-when-looking-down", 35.0);
+        if (lookDownLimit == 0.0) lookDownLimit = 35.0;  // legacy configs shipped 0 (= old default = off)
         boolean lookDownOff = lookDownLimit < 0;
         for (Player p : Bukkit.getOnlinePlayers()) {
             UUID id = p.getUniqueId();
@@ -467,7 +467,7 @@ public final class BackpackModule extends AbstractModule {
         for (ItemStack c : contents) {
             if (c != null) p.getWorld().dropItemNaturally(p.getLocation(), c);
         }
-        p.sendActionBar(mm("<yellow>⚠ The backpack vanished while it was open, its contents were dropped at your feet."));
+        p.sendActionBar(mm("<yellow>??? The backpack vanished while it was open, its contents were dropped at your feet."));
     }
 
     /** Serializes the closed inventory into the Backpack ItemStack iff it is the one that was open. */
@@ -574,7 +574,7 @@ public final class BackpackModule extends AbstractModule {
             gateOverChestplate(p, pi.getChestplate(), e);
         } else if (isBackpack(e.getCurrentItem()) && viewingBackpack(p)) {
             e.setCancelled(true);
-            p.sendActionBar(mm("<yellow>⚠</yellow> <yellow>Close the backpack before taking it off.</yellow>"));
+            p.sendActionBar(mm("<yellow>???</yellow> <yellow>Close the backpack before taking it off.</yellow>"));
             p.playSound(p.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.8f, 0.8f);
         }
     }
@@ -583,7 +583,7 @@ public final class BackpackModule extends AbstractModule {
     private void gateOverChestplate(Player p, ItemStack chest, InventoryClickEvent e) {
         if (chest == null || chest.getType().isAir() || isBackpack(chest)) return;
         e.setCancelled(true);
-        p.sendActionBar(mm("<yellow>⚠</yellow> <yellow>Take off your current chestplate before wearing a backpack.</yellow>"));
+        p.sendActionBar(mm("<yellow>???</yellow> <yellow>Take off your current chestplate before wearing a backpack.</yellow>"));
         p.playSound(p.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.8f, 0.8f);
     }
 
@@ -593,7 +593,7 @@ public final class BackpackModule extends AbstractModule {
         if (!(e.getView().getTopInventory() instanceof GrindstoneInventory)) return;
         if (isBackpack(e.getCurrentItem()) || isBackpack(e.getCursor())) {
             e.setCancelled(true);
-            e.getWhoClicked().sendMessage(mm("<yellow>⚠ A backpack cannot be ground, its contents are stored inside it."));
+            e.getWhoClicked().sendMessage(mm("<yellow>??? A backpack cannot be ground, its contents are stored inside it."));
         }
     }
 

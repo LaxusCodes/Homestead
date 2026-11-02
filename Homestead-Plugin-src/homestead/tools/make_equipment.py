@@ -37,6 +37,69 @@ def put(tex, x, y, w, h, name, mat, face, c, rng):
     tex[py:py + hh, px:px + ww, 3] = 255
 
 
+def shade(tex, x0, y0, x1, y1, k):
+    """Multiply the RGB of a rectangle (texels) by k - k may be a scalar or an (h, 1) column."""
+    x0, y0 = max(0, x0), max(0, y0)
+    reg = tex[y0:y1, x0:x1, :3]
+    if reg.size == 0:
+        return
+    kk = k if np.isscalar(k) else k[: reg.shape[0]][:, :, None]
+    mask = (tex[y0:y1, x0:x1, 3] > 0)[..., None]
+    reg[:] = np.where(mask, reg * kk, reg)
+
+
+def add_depth(tex):
+    """
+    An armour layer is a flat shell, so the pack volume is faked with light: a top-to-bottom light fall-off,
+    ambient occlusion at the rim, contact shadows under the lid / pocket, bright top lips, and the
+    pack's profile (lid bulge, pocket bulge, bottle pockets) wrapped onto the side faces.
+    """
+    s = S
+    bx, by = 32 * s, 20 * s            # back face origin (texels)
+    bw, bh = 8 * s, 12 * s
+
+    # 1. light fall-off down the back face (top lit, bottom in shade)
+    ramp = np.linspace(1.10, 0.80, bh)[:, None]
+    shade(tex, bx, by, bx + bw, by + bh, ramp)
+
+    # 2. contact shadows: under the lid flap, around + under the front pocket, under the pocket lid
+    shade(tex, bx + int(0.25 * s), by + int(3.4 * s), bx + int(7.75 * s), by + int(3.4 * s) + int(0.9 * s), 0.62)
+    shade(tex, bx + int(1.25 * s), by + int(6.6 * s), bx + int(6.75 * s), by + int(6.6 * s) + int(0.7 * s), 0.60)
+    shade(tex, bx + int(1.1 * s), by + int(7.0 * s), bx + int(1.5 * s), by + int(9.6 * s), 0.70)     # pocket left wall
+    shade(tex, bx + int(6.5 * s), by + int(7.0 * s), bx + int(6.9 * s), by + int(9.6 * s), 0.70)     # right wall
+    shade(tex, bx + int(1.4 * s), by + int(9.2 * s), bx + int(6.6 * s), by + int(9.2 * s) + int(0.7 * s), 0.55)  # under pocket
+
+    # 3. bright top lips (light catching the lid, the pocket lid and the bottle-pocket rims)
+    shade(tex, bx + int(0.25 * s), by, bx + int(7.75 * s), by + int(0.5 * s), 1.28)
+    shade(tex, bx + int(1.25 * s), by + int(5.5 * s), bx + int(6.75 * s), by + int(5.5 * s) + int(0.35 * s), 1.25)
+    shade(tex, bx, by + int(6.0 * s), bx + int(0.8 * s), by + int(6.0 * s) + int(0.35 * s), 1.2)
+    shade(tex, bx + int(7.2 * s), by + int(6.0 * s), bx + bw, by + int(6.0 * s) + int(0.35 * s), 1.2)
+
+    # 4. rim ambient occlusion: the pack curves away from the viewer at its edges
+    rim = max(2, int(0.6 * s))
+    for i in range(rim):
+        f = 0.70 + 0.30 * (i / rim)
+        shade(tex, bx, by + i, bx + bw, by + i + 1, f * 1.1)             # top rim stays a touch lit
+        shade(tex, bx, by + bh - 1 - i, bx + bw, by + bh - i, f * 0.85)
+        shade(tex, bx + i, by, bx + i + 1, by + bh, f)
+        shade(tex, bx + bw - 1 - i, by, bx + bw - i, by + bh, f * 0.9)
+
+    # 5. side faces (4 x 12 at x=16 west / x=28 east): back edge is the lit bulge, front edge falls to shadow
+    for sx, back_left in ((16 * s, True), (28 * s, False)):
+        sw, sh = 4 * s, 12 * s
+        col = np.linspace(0.62, 1.0, sw)
+        if not back_left:
+            col = col[::-1]
+        for i in range(sw):
+            shade(tex, sx + i, by, sx + i + 1, by + sh, float(col[i]))
+        # vertical light fall-off on the sides too
+        shade(tex, sx, by, sx + sw, by + sh, np.linspace(1.08, 0.82, sh)[:, None])
+        # lid bulge at the top of the side, bottle pocket bulge lower down (brighter lips)
+        shade(tex, sx, by, sx + sw, by + int(0.5 * s), 1.25)
+        shade(tex, sx, by + int(6.0 * s), sx + sw, by + int(6.0 * s) + int(0.35 * s), 1.25)
+        shade(tex, sx, by + int(6.4 * s), sx + sw, by + int(6.4 * s) + int(0.5 * s), 0.7)
+
+
 def build(skin, c, pack):
     rng = np.random.default_rng(sum(ord(ch) for ch in skin) * 104729)
     tex = np.zeros((H, W, 4), dtype=np.float32)
@@ -80,6 +143,7 @@ def build(skin, c, pack):
     # ---- bottom face: 8 x 4 at (28, 16)
     put(tex, 28, 16, 8, 4, "base", "dark", "down", c, rng)
 
+    add_depth(tex)
     img = Image.fromarray(np.clip(tex, 0, 255).astype(np.uint8), "RGBA")
     tdir = os.path.join(pack, "assets", "homestead", "textures", "entity", "equipment", "humanoid")
     edir = os.path.join(pack, "assets", "homestead", "equipment")

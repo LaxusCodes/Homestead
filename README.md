@@ -7,7 +7,7 @@ Cozy "Vanilla+" survival for Minecraft servers: a **Paper plugin** plus a **reso
 ## Repo layout
 | Path | What it is |
 |---|---|
-| `Homestead-Plugin-src/homestead/` | Maven plugin source (Java 21, Paper API 1.21.1). See its [README](Homestead-Plugin-src/homestead/README.md) |
+| `Homestead-Plugin-src/homestead/` | Maven plugin source (Java 25, Paper API 26.3). See its [README](Homestead-Plugin-src/homestead/README.md) |
 | `Realism-ResourcePack-Homestead-v6/` | Unzipped resource pack (`pack.mcmeta` at the folder root) |
 
 ## No local compiling needed — GitHub builds it
@@ -31,7 +31,7 @@ mvn clean package
 ```
 
 ## Server-side setup
-- Paper 1.21.1+ (ViaVersion works for mixed client versions)
+- Paper 26.3+ on Java 25 (built against `paper-api [26.3.build,)`)
 - `Homestead.jar` in `plugins/`
 - Host `Realism-ResourcePack-Homestead-v6.zip` on any HTTPS host and set in `server.properties`:
   ```properties

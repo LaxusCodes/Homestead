@@ -3,13 +3,13 @@
 Cozy "Vanilla+" survival inspired by the Homestead modpack, as a server-side plugin.
 Pairs with your **Realism** plugin and the **Realism + Farmer's Delight resource pack**.
 
-Requires Paper **1.21.1+** and Java 21. Custom items use `custom_model_data`; the resource pack needs the generated overrides (see below).
+Requires Paper **26.3+** and Java 25. Custom items use `custom_model_data`; the resource pack needs the generated overrides (see below).
 
-## Modules (toggle in config.yml ??? `modules`)
+## Modules (toggle in config.yml → `modules`)
 | Module | What it does |
 |---|---|
 | survival | 4 seasons, effective temperature (cold overlay, warm near fires / in leather / after hot meals), thirst bar (full bar drains to 0 in 20 minutes; unboiled water can poison you - boil it in the pot), drink from water (sneak + right-click, empty hand) |
-| farming | crops grow faster in spring, slower in winter; light ??? 12 nearby = heated greenhouse |
+| farming | crops grow faster in spring, slower in winter; light ≥ 12 nearby = heated greenhouse |
 | cooking | cauldron on a lit campfire = cooking pot. Add ingredients, stir with a stick, serve with a bowl. Meals use Farmer's Delight models from the pack |
 | quests | chains in `quests.yml` (BREAK, HARVEST, KILL, CRAFT, COOK, EAT, DRINK, DECOR), item/command/xp rewards, `/quests` |
 | decor | 5 chairs, stool, tatami mat, rug, 4 cabinets, pot, stove, baskets, rice bale, cutting board (ItemDisplay + Interaction). Right-click the top of a block to place, right-click to sit (clicking the block the furniture stands on also works), sneak + right-click to pick up. Breaking the support block drops it back |
@@ -54,11 +54,11 @@ Nudge positions in config (then regenerate the pack, see below):
 ```
 mvn clean package
 ```
-Jar: `target/Homestead.jar` ??? drop in `plugins/`. Keep the Realism plugin too (soft-depend).
+Jar: `target/Homestead.jar` → drop in `plugins/`. Keep the Realism plugin too (soft-depend).
 CI builds with `-Dhomestead.version=0.1.<run number>` so every run bumps the plugin version (local builds stay `0.1.0`); `plugin.yml` gets it via resource filtering.
 
 ## Resource pack
-Use **Realism-ResourcePack-Homestead-v6.zip** (your pack + new HUD glyph bars + 256px detailed backpack skins + wine, must and Golden Leaf art + model overrides). `pack.mcmeta` covers 1.20.1 ??? latest (`pack_format: 15` + `supported_formats` up to 99999) so ViaVersion clients of any version accept it.
+Use **Realism-ResourcePack-Homestead-v6.zip** (your pack + new HUD glyph bars + 256px detailed backpack skins + wine, must and Golden Leaf art + model overrides). `pack.mcmeta` covers 1.20.1 → latest (`pack_format: 15` + `supported_formats` up to 99999) so ViaVersion clients of any version accept it.
 If you change `cmd`/`model`/HUD values in config.yml, regenerate:
 ```
 pip install pyyaml pillow
@@ -76,9 +76,10 @@ All plugin state lives in one SQLite file: `plugins/Homestead/data/homestead.db`
 - Furniture, wine barrels and backpack contents are not in the database on purpose: they belong to entities, block states and item NBT, which persist on their own.
 
 ## Backpack on your back
-The worn model is an ItemDisplay riding the player (defaults `y: -0.80`, `z: -0.27` sit it on the torso, clear of the head). If it floats, sinks or sits in front of you, change `backpack.back.y` / `z` / `scale` in config.yml and run `/homestead reload`.
-Set `backpack.show-on-back: false` to turn the worn model off. By default the wearer sees their own pack on the back (F5/back view) and other players always see it; `backpack.hide-when-looking-down: 35` hides the pack from its owner past 35 degrees of downward pitch so it never fills first person (0 = use the built-in 35, negative = off), and `backpack.hide-from-self: true` hides the pack from its owner in every camera instead.
-The pack is a plain chainmail chestplate with zero armour; equipping happens by moving it into the chest slot (right-clicking with it in hand opens the pack instead). The resource pack ships a fully transparent chainmail equipment texture (`textures/entity/equipment/humanoid/chainmail.png` for 1.21.4+, `textures/models/armor/chainmail_layer_1.png` for older), so the gray chainmail body layer never renders and a worn pack shows only the 3D backpack. Side effect: real chainmail chestplates and helmets are invisible to players using the pack - if that ever matters, drop those two files and give the item a custom equippable asset on a 1.21.4+ Paper API instead.
+
+`backpack.worn-mode: equipment` (default) gives every backpack an `equippable` component (chest slot) with its own equipment asset `homestead:backpack_<skin>`. The client draws it as an armour layer, so it shows in F5 and is never drawn in first person, exactly like a chestplate. It is painted on the chestplate body layout (pack on the back, straps on the chest and shoulders) by `tools/make_equipment.py`; old backpacks are upgraded automatically on join / when worn.
+
+`backpack.worn-mode: display` brings back the legacy 3D ItemDisplay on your back (tune `backpack.back.*`, `hide-when-looking-down`, `hide-from-self`).
 
 ## Tuning notes
 - Sitting height differs per model: adjust `seat-height` per furniture in config. If a model renders too low/high, use its `display-y`.

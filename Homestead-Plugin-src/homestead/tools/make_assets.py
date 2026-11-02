@@ -258,4 +258,10 @@ _spec = importlib.util.spec_from_file_location("make_backpack", os.path.join(os.
 _mb = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_mb)
 _mb.main(pack)
+
+# armour-layer versions of the same skins (Minecraft 26.x equippable component)
+_se = importlib.util.spec_from_file_location("make_equipment", os.path.join(os.path.dirname(os.path.abspath(__file__)), "make_equipment.py"))
+_me = importlib.util.module_from_spec(_se)
+_se.loader.exec_module(_me)
+_me.main(pack)
 print("homestead assets written")

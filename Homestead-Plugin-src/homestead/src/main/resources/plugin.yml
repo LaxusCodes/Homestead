@@ -1,7 +1,7 @@
 name: Homestead
 main: dev.laxus.homestead.HomesteadPlugin
 version: ${project.version}
-api-version: '1.21'
+api-version: '26.3'
 author: Laxus
 description: Cozy survival - cooking, farming, quests, seasons, thirst and furniture.
 softdepend: [Realism]

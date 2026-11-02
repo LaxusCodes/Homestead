@@ -109,6 +109,16 @@ if os.path.isfile(fp):
                     if w % len(rows[0]) or h % len(rows):
                         err(f"hud.json: {prov['file']} is {w}x{h}, not divisible into {len(rows[0])}x{len(rows)} cells")
 
+# ---- 2b) armour-layer backpacks (26.x equippable): equipment json + texture per skin
+if cfg["backpack"].get("worn-mode", "equipment") == "equipment":
+    for k in cfg["backpack"]["skins"]:
+        ej = os.path.join(A, "homestead", "equipment", f"backpack_{k}.json")
+        tx = os.path.join(A, "homestead", "textures", "entity", "equipment", "humanoid", f"backpack_{k}.png")
+        if not os.path.isfile(ej):
+            err(f"backpack:{k}: missing equipment asset assets/homestead/equipment/backpack_{k}.json")
+        if not os.path.isfile(tx):
+            err(f"backpack:{k}: missing humanoid equipment texture backpack_{k}.png")
+
 mc = json.load(open(os.path.join(pack, "pack.mcmeta")))
 if "pack" not in mc:
     err("pack.mcmeta has no 'pack' section")

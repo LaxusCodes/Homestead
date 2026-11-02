@@ -499,6 +499,11 @@ backpack:
   # Wearing the pack in the chest slot shows its 3D model on your back; you never see it yourself
   # in first person (or F5), other players always do.
   # Open it: right-click with the pack in hand, or sneak + right-click with an empty hand while wearing.
+  # worn-mode: equipment = real armour layer via the equippable component (Minecraft 26.x, needs the
+  #                        homestead:backpack_<skin> equipment assets from the resource pack). Shows in F5,
+  #                        never in first person, exactly like a chestplate. No entities, no tricks.
+  #            display   = legacy 3D ItemDisplay on the back (hide-* options below only apply here).
+  worn-mode: equipment
   rows: 3
   base: CHAINMAIL_CHESTPLATE
   default-skin: classic

@@ -1,0 +1,9 @@
+{
+  "layers": {
+    "humanoid": [
+      {
+        "texture": "homestead:backpack_classic"
+      }
+    ]
+  }
+}

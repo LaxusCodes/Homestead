@@ -37,6 +37,7 @@ import org.bukkit.inventory.RecipeChoice;
 import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.inventory.ShapelessRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.components.EquippableComponent;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.util.Transformation;
@@ -216,10 +217,10 @@ public final class BackpackModule extends AbstractModule {
         ItemStack it = new ItemStack(s.base());
         ItemMeta m = it.getItemMeta();
         m.lore(List.of(
-                item("<aqua>???</aqua> <gray>Wears in the chest slot</gray> <dark_gray>(no armor value)</dark_gray>"),
-                item("<aqua>???</aqua> <gray>Right-click in hand to open, or sneak-right-click while worn"),
-                item("<dark_gray>??? Contents are stored inside the item</dark_gray>"),
-                item("<dark_gray>??? Craft it together with a dye to restyle it</dark_gray>")));
+                item("<aqua>◆</aqua> <gray>Wears in the chest slot</gray> <dark_gray>(no armor value)</dark_gray>"),
+                item("<aqua>◆</aqua> <gray>Right-click in hand to open, or sneak-right-click while worn"),
+                item("<dark_gray>▪ Contents are stored inside the item</dark_gray>"),
+                item("<dark_gray>▪ Craft it together with a dye to restyle it</dark_gray>")));
         m.setMaxStackSize(1);
         // a backpack is storage, not armour: wipe the vanilla chestplate armour bonus
         m.setAttributeModifiers(com.google.common.collect.HashMultimap.create());
@@ -234,6 +235,40 @@ public final class BackpackModule extends AbstractModule {
         m.displayName(item(s.name()));
         if (s.cmd() > 0) m.setCustomModelData(s.cmd());
         m.getPersistentDataContainer().set(skinKey, PersistentDataType.STRING, s.id());
+        if (equipmentMode()) applyEquippable(m, s.id());
+        it.setItemMeta(m);
+    }
+
+    // ------------------------------------------------------------ equipment mode
+
+    private boolean equipmentMode() {
+        return "equipment".equalsIgnoreCase(plugin.getConfig().getString("backpack.worn-mode", "equipment"));
+    }
+
+    private static NamespacedKey equipmentKey(String skinId) {
+        return NamespacedKey.fromString("homestead:backpack_" + skinId);
+    }
+
+    /** Chest-slot equippable with the skin's own equipment asset: the client draws it like armour. */
+    private void applyEquippable(ItemMeta m, String skinId) {
+        EquippableComponent eq = m.getEquippable();
+        eq.setSlot(EquipmentSlot.CHEST);
+        eq.setModel(equipmentKey(skinId));
+        eq.setDamageOnHurt(false);
+        eq.setSwappable(true);
+        m.setEquippable(eq);
+    }
+
+    private boolean needsEquippable(ItemStack it) {
+        ItemMeta m = it.getItemMeta();
+        EquippableComponent eq = m.getEquippable();
+        return eq.getSlot() != EquipmentSlot.CHEST || !equipmentKey(skinOf(it)).equals(eq.getModel());
+    }
+
+    /** Backpacks made before equipment mode (or on another skin) get their equippable component added. */
+    private void upgrade(ItemStack it) {
+        ItemMeta m = it.getItemMeta();
+        applyEquippable(m, skinOf(it));
         it.setItemMeta(m);
     }
 
@@ -260,10 +295,27 @@ public final class BackpackModule extends AbstractModule {
     }
 
     private void updateWorn() {
+        if (equipmentMode()) {
+            if (!worn.isEmpty()) {            // switched from display mode: drop any leftover entities
+                for (ItemDisplay d : worn.values()) d.remove();
+                worn.clear();
+                wornSkin.clear();
+                bodyYaw.clear();
+                lastXZ.clear();
+            }
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                ItemStack chest = chestPack(p);
+                if (chest != null && needsEquippable(chest)) {
+                    upgrade(chest);
+                    p.getInventory().setChestplate(chest);
+                }
+            }
+            return;
+        }
         boolean show = plugin.getConfig().getBoolean("backpack.show-on-back", true);
         boolean alwaysHideSelf = plugin.getConfig().getBoolean("backpack.hide-from-self", false);
         double lookDownLimit = plugin.getConfig().getDouble("backpack.hide-when-looking-down", 35.0);
-        if (lookDownLimit == 0.0) lookDownLimit = 35.0;  // legacy configs shipped 0 (= old default = off)
+        if (lookDownLimit == 0.0) lookDownLimit = 35.0;  // 0 = plugin default
         boolean lookDownOff = lookDownLimit < 0;
         for (Player p : Bukkit.getOnlinePlayers()) {
             UUID id = p.getUniqueId();
@@ -296,8 +348,12 @@ public final class BackpackModule extends AbstractModule {
             // The wearer sees their own pack on their back (F5). In first person a steeply pitched
             // camera would put the pack across the screen, so it is dropped past the pitch limit.
             // backpack.hide-from-self: true hides it from the wearer in every camera instead.
-            boolean hideSelf = alwaysHideSelf
-                    || (!lookDownOff && p.getLocation().getPitch() > (float) lookDownLimit);
+            // Hysteresis (8 degrees) so hovering around the limit doesn't flicker the pack on/off.
+            float pitch = p.getLocation().getPitch();
+            boolean hideSelf;
+            if (alwaysHideSelf) hideSelf = true;
+            else if (lookDownOff) hideSelf = false;
+            else hideSelf = p.canSee(d) ? pitch > (float) lookDownLimit : pitch > (float) lookDownLimit - 8f;
             if (hideSelf) {
                 if (p.canSee(d)) p.hideEntity(plugin, d);
             } else if (!p.canSee(d)) {
@@ -467,7 +523,7 @@ public final class BackpackModule extends AbstractModule {
         for (ItemStack c : contents) {
             if (c != null) p.getWorld().dropItemNaturally(p.getLocation(), c);
         }
-        p.sendActionBar(mm("<yellow>??? The backpack vanished while it was open, its contents were dropped at your feet."));
+        p.sendActionBar(mm("<yellow>⚠ The backpack vanished while it was open, its contents were dropped at your feet."));
     }
 
     /** Serializes the closed inventory into the Backpack ItemStack iff it is the one that was open. */
@@ -574,7 +630,7 @@ public final class BackpackModule extends AbstractModule {
             gateOverChestplate(p, pi.getChestplate(), e);
         } else if (isBackpack(e.getCurrentItem()) && viewingBackpack(p)) {
             e.setCancelled(true);
-            p.sendActionBar(mm("<yellow>???</yellow> <yellow>Close the backpack before taking it off.</yellow>"));
+            p.sendActionBar(mm("<yellow>⚠</yellow> <yellow>Close the backpack before taking it off.</yellow>"));
             p.playSound(p.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.8f, 0.8f);
         }
     }
@@ -583,7 +639,7 @@ public final class BackpackModule extends AbstractModule {
     private void gateOverChestplate(Player p, ItemStack chest, InventoryClickEvent e) {
         if (chest == null || chest.getType().isAir() || isBackpack(chest)) return;
         e.setCancelled(true);
-        p.sendActionBar(mm("<yellow>???</yellow> <yellow>Take off your current chestplate before wearing a backpack.</yellow>"));
+        p.sendActionBar(mm("<yellow>⚠</yellow> <yellow>Take off your current chestplate before wearing a backpack.</yellow>"));
         p.playSound(p.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.8f, 0.8f);
     }
 
@@ -593,13 +649,23 @@ public final class BackpackModule extends AbstractModule {
         if (!(e.getView().getTopInventory() instanceof GrindstoneInventory)) return;
         if (isBackpack(e.getCurrentItem()) || isBackpack(e.getCursor())) {
             e.setCancelled(true);
-            e.getWhoClicked().sendMessage(mm("<yellow>??? A backpack cannot be ground, its contents are stored inside it."));
+            e.getWhoClicked().sendMessage(mm("<yellow>⚠ A backpack cannot be ground, its contents are stored inside it."));
         }
     }
 
     @EventHandler
     public void onJoin(PlayerJoinEvent e) {
         for (NamespacedKey k : recipeKeys) e.getPlayer().discoverRecipe(k);
+        if (equipmentMode()) {
+            PlayerInventory pi = e.getPlayer().getInventory();
+            for (int i = 0; i < 41; i++) {
+                ItemStack it = pi.getItem(i);
+                if (isBackpack(it) && needsEquippable(it)) {
+                    upgrade(it);
+                    pi.setItem(i, it);
+                }
+            }
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

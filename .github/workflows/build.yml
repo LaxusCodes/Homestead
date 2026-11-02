@@ -59,10 +59,11 @@ jobs:
           name: Homestead-${{ env.PLUGIN_VERSION }}
           path: dist
 
-      - name: Zip resource pack (pack.mcmeta at zip root)
+      - name: Zip resource pack (reproducible: pack.mcmeta at zip root)
         run: |
           cd Realism-ResourcePack-Homestead-v6
-          zip -r "../Homestead-ResourcePack-${{ github.ref_name }}.zip" .
+          find . -type f -exec touch -d '2026-01-01 00:00:00' {} +
+          find . -type f | LC_ALL=C sort | zip -X -q "../Homestead-ResourcePack-${{ github.ref_name }}.zip" -@
 
       - name: Attach to GitHub release
         uses: softprops/action-gh-release@v2
@@ -89,10 +90,11 @@ jobs:
           name: Homestead-${{ env.PLUGIN_VERSION }}
           path: dist
 
-      - name: Zip resource pack (pack.mcmeta at zip root)
+      - name: Zip resource pack (reproducible: pack.mcmeta at zip root)
         run: |
           cd Realism-ResourcePack-Homestead-v6
-          zip -q -r ../dist/Homestead-ResourcePack.zip .
+          find . -type f -exec touch -d '2026-01-01 00:00:00' {} +
+          find . -type f | LC_ALL=C sort | zip -X -q ../dist/Homestead-ResourcePack.zip -@
 
       - name: Replace the rolling 'latest' release
         env:

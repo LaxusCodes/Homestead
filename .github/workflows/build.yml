@@ -59,7 +59,7 @@ jobs:
           name: Homestead-${{ env.PLUGIN_VERSION }}
           path: dist
 
-      - name: Zip resource pack (reproducible: pack.mcmeta at zip root)
+      - name: "Zip resource pack (reproducible: pack.mcmeta at zip root)"
         run: |
           cd Realism-ResourcePack-Homestead-v6
           find . -type f -exec touch -d '2026-01-01 00:00:00' {} +
@@ -90,7 +90,7 @@ jobs:
           name: Homestead-${{ env.PLUGIN_VERSION }}
           path: dist
 
-      - name: Zip resource pack (reproducible: pack.mcmeta at zip root)
+      - name: "Zip resource pack (reproducible: pack.mcmeta at zip root)"
         run: |
           cd Realism-ResourcePack-Homestead-v6
           find . -type f -exec touch -d '2026-01-01 00:00:00' {} +
